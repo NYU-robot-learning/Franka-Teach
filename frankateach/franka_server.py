@@ -102,40 +102,40 @@ class Robot(FrankaInterface):
     def osc_move(self, target_pos, target_quat, gripper_state):
         target_mat = transform_utils.pose2mat(pose=(target_pos, target_quat))
 
-        idx = 0
-        for idx in range(80):
-            current_quat, current_pos = self.last_eef_quat_and_pos
-            current_mat = transform_utils.pose2mat(
-                pose=(current_pos.flatten(), current_quat.flatten())
-            )
+        # idx = 0
+        # for idx in range(80):
+        current_quat, current_pos = self.last_eef_quat_and_pos
+        current_mat = transform_utils.pose2mat(
+            pose=(current_pos.flatten(), current_quat.flatten())
+        )
 
-            pose_error = transform_utils.get_pose_error(
-                target_pose=target_mat, current_pose=current_mat
-            )
-            # if np.linalg.norm(pose_error[:3]) < 0.01:
-            #     break
+        pose_error = transform_utils.get_pose_error(
+            target_pose=target_mat, current_pose=current_mat
+        )
+        # if np.linalg.norm(pose_error[:3]) < 0.01:
+        #     break
 
-            if np.dot(target_quat, current_quat) < 0.0:
-                current_quat = -current_quat
+        if np.dot(target_quat, current_quat) < 0.0:
+            current_quat = -current_quat
 
-            quat_diff = transform_utils.quat_distance(target_quat, current_quat)
-            axis_angle_diff = transform_utils.quat2axisangle(quat_diff)
+        quat_diff = transform_utils.quat_distance(target_quat, current_quat)
+        axis_angle_diff = transform_utils.quat2axisangle(quat_diff)
 
-            # action_pos = pose_error[:3]
-            # action_axis_angle = axis_angle_diff.flatten()
-            action_pos = pose_error[:3] * 10
-            action_axis_angle = axis_angle_diff.flatten() * 1
-            action_pos = np.clip(action_pos, -1.0, 1.0)
-            action_axis_angle = np.clip(action_axis_angle, -0.5, 0.5)
+        # action_pos = pose_error[:3]
+        # action_axis_angle = axis_angle_diff.flatten()
+        action_pos = pose_error[:3] * 10
+        action_axis_angle = axis_angle_diff.flatten() * 1
+        action_pos = np.clip(action_pos, -1.0, 1.0)
+        action_axis_angle = np.clip(action_axis_angle, -0.5, 0.5)
 
-            action = action_pos.tolist() + action_axis_angle.tolist() + [gripper_state]
+        action = action_pos.tolist() + action_axis_angle.tolist() + [gripper_state]
 
-            self.control(
-                controller_type="OSC_POSE",
-                action=action,
-                controller_cfg=self.velocity_controller_cfg,
-            )
-        print(idx)
+        self.control(
+            controller_type="OSC_POSE",
+            action=action,
+            controller_cfg=self.velocity_controller_cfg,
+        )
+        # print(idx)
 
         # target_axis_angle = transform_utils.quat2axisangle(target_quat)
         # current_rot, current_pos = self.last_eef_rot_and_pos

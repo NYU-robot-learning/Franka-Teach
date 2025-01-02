@@ -3,3 +3,4 @@ __pycache__/
 logs/
 extracted_data/
 outputs/
+views_test/
