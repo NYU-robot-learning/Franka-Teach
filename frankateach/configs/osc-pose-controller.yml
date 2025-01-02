@@ -7,13 +7,11 @@ traj_interpolator_cfg:
   time_fraction: 0.3
 
 Kp:
-  # translation: 350.0
-  # rotation: 300.0
   translation: 250.0
   rotation: 250.0
 
 action_scale:
-  translation: 1.0 # 0.05
+  translation: 0.05 #1.0 # 0.05
   rotation: 1.0
 
 residual_mass_vec: [0.0, 0.0, 0.0, 0.0, 0.1, 0.5, 0.5]
