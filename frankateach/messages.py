@@ -10,6 +10,7 @@ class FrankaState:
     quat: np.ndarray
     gripper: np.ndarray
     timestamp: float
+    start_teleop: bool = False
 
 
 @dataclass
