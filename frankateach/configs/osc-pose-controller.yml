@@ -9,9 +9,11 @@ traj_interpolator_cfg:
 Kp:
   translation: 250.0
   rotation: 250.0
+  # translation: 1000.0 #400.0
+  # rotation: 400.0
 
 action_scale:
-  translation: 0.05 #1.0 # 0.05
+  translation: 0.05 #1.0
   rotation: 1.0
 
 residual_mass_vec: [0.0, 0.0, 0.0, 0.0, 0.1, 0.5, 0.5]
