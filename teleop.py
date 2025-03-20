@@ -31,6 +31,7 @@ def main(cfg):
             cfg.init_gripper_state,
             cfg.teleop_mode,
             cfg.home_offset,
+            cfg.deoxys_config_path,
         ),
     )
     oculus_stick_process = Process(target=start_oculus_stick)
