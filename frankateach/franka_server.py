@@ -26,9 +26,11 @@ CONFIG_ROOT = Path(__file__).parent / "configs"
 
 class FrankaServer:
     def __init__(self, cfg):
+    # def __init__(self, cfg, control_port):
         self._robot = Robot(cfg, CONTROL_FREQ)
         # Action REQ/REP
         self.action_socket = create_response_socket(HOST, CONTROL_PORT)
+        # self.action_socket = create_response_socket(HOST, control_port)
 
     def init_server(self):
         # connect to robot

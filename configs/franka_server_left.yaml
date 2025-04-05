@@ -1,0 +1,5 @@
+defaults:
+  - _self_
+
+deoxys_config_path: "deoxys_left.yml"
+control_port: 8911

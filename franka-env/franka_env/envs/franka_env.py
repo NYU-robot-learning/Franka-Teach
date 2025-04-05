@@ -33,6 +33,7 @@ class FrankaEnv(gym.Env):
         use_robot=True,
         sensor_type=None,
         sensor_params=None,
+        # control_port=None,
     ):
         super(FrankaEnv, self).__init__()
         self.width = width
@@ -116,7 +117,7 @@ class FrankaEnv(gym.Env):
 
                 # Call once to populate initial baseline
                 self._get_reskin_state(update_baseline=True)
-
+            # import ipdb; ipdb.set_trace()
             self.action_request_socket = create_request_socket(HOST, CONTROL_PORT)
 
     def get_state(self):
