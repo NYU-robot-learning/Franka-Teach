@@ -27,7 +27,7 @@ except ImportError:
 class FrankaEnv(gym.Env):
     def __init__(
         self,
-        cam_ids=[1, 2, 3, 4, 51],
+        cam_ids=[1, 2, 3, 4, 5, 51],
         width=640,
         height=480,
         use_robot=True,
@@ -299,3 +299,6 @@ if __name__ == "__main__":
             images.append(obs["pixels_0"])
 
         np.save("images.npy", np.array(images))
+        # save image as png
+        # for i, image in enumerate(images):
+        #     cv2.imwrite(f"images/image_{i}.png", image)

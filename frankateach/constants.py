@@ -14,15 +14,41 @@ STATE_TOPIC = "state"
 CONTROL_TOPIC = "control"
 
 # VR constants
-VR_TCP_HOST = "10.19.225.15"
+VR_TCP_HOST = "10.19.189.139"
 VR_TCP_PORT = 5555
 VR_CONTROLLER_TOPIC = b"oculus_controller"
 
 # Robot constants
 GRIPPER_OPEN = -1
 GRIPPER_CLOSE = 1
-H_R_V = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
-H_R_V_star = np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
+
+
+FRANKA_SERVER_CONFIG_PATH = "/home/bobby/Point-Policy/Franka-Teach/configs/franka_server.yaml"
+import yaml
+
+# Load and parse the YAML file
+with open(FRANKA_SERVER_CONFIG_PATH, 'r') as f:
+    config = yaml.safe_load(f)
+
+# Access the value of 'deoxys_config_path'
+deoxys_config = config.get("deoxys_config_path")
+if deoxys_config == "deoxys_right.yml":
+    H_R_V = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
+    H_R_V_star = np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
+elif deoxys_config == "deoxys_left.yml":
+    H_R_V = np.array([
+        [-1,  0,  0,  0],
+        [ 0,  0,  1,  0],
+        [ 0, 1,  0,  0],
+        [ 0,  0,  0,  1]
+    ])
+    H_R_V_star = np.array([
+        [ 1,  0,  0,  0],
+        [ 0,  0,  1,  0],
+        [ 0, 1,  0,  0],
+        [ 0,  0,  0,  1]
+    ]) #working
+
 x_min, x_max = 0.2, 0.75
 y_min, y_max = -0.4, 0.4
 z_min, z_max = 0.05, 0.7  # 232, 550
