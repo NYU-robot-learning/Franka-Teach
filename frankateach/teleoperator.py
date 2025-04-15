@@ -57,6 +57,7 @@ class FrankaOperator:
         teleop_mode="robot",
         home_offset=[0, 0, 0],
         deoxys_config_path=None,
+        continuous_gripper=False,   
     ) -> None:
         # Subscribe controller state
         self._controller_state_subscriber = ZMQKeypointSubscriber(
@@ -83,7 +84,7 @@ class FrankaOperator:
             np.array(home_offset) if home_offset is not None else np.zeros(3)
         )
         self.deoxys_config_path = deoxys_config_path
-
+        self.continuous_gripper = continuous_gripper
     def _apply_retargeted_angles(self) -> None:
         self.controller_state = self._controller_state_subscriber.recv_keypoints()
 
@@ -148,10 +149,28 @@ class FrankaOperator:
 
         gripper_action = None
         if self.teleop_mode == "robot":
-            if self.controller_state.right_index_trigger > 0.5:
-                gripper_action = GRIPPER_CLOSE
-            elif self.controller_state.right_hand_trigger > 0.5:
-                gripper_action = GRIPPER_OPEN
+            if self.continuous_gripper:
+                # Initialize or update last gripper state
+                if not hasattr(self, 'last_gripper_state'):
+                    self.last_gripper_state = self.gripper_state
+                
+                # Calculate gripper change based on trigger values
+                gripper_change = 0
+                if self.controller_state.right_index_trigger > 0.5:
+                    # Gradually close (move towards 1)
+                    gripper_change = 0.05 * GRIPPER_CLOSE
+                elif self.controller_state.right_hand_trigger > 0.5:
+                    # Gradually open (move towards -1)
+                    gripper_change = 0.05 * GRIPPER_OPEN
+                
+                # Update gripper state with change, clamping between -1 and 1
+                gripper_action = np.clip(self.last_gripper_state + gripper_change, GRIPPER_OPEN, GRIPPER_CLOSE)
+                self.last_gripper_state = gripper_action
+            else:
+                if self.controller_state.right_index_trigger > 0.5:
+                    gripper_action = GRIPPER_CLOSE
+                elif self.controller_state.right_hand_trigger > 0.5:
+                    gripper_action = GRIPPER_OPEN
 
         if gripper_action is not None and gripper_action != self.gripper_state:
             self.gripper_state = gripper_action

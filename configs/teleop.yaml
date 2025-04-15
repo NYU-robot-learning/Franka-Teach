@@ -2,3 +2,4 @@ init_gripper_state: open # open, close
 teleop_mode: robot # robot, human
 home_offset: null
 deoxys_config_path: "deoxys_right.yml" # deoxys_left.yml, deoxys_right.yml
+continuous_gripper: false # true, false
