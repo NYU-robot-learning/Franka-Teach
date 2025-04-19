@@ -34,6 +34,10 @@ class ReskinSensorPublisher:
 
     def stream(self):
         notify_component_start("Reskin sensors")
+        import numpy as np
+        counter = 0
+        reskin_state = self.sensor_proc.get_data(1)[0]
+        baseline_magnitude = np.linalg.norm(reskin_state.data[:3])
 
         while True:
             try:
@@ -42,11 +46,14 @@ class ReskinSensorPublisher:
                 data_dict = {}
                 data_dict["timestamp"] = reskin_state.time
                 data_dict["sensor_values"] = reskin_state.data
+                if counter % 100 == 0:
+                    magnitude = np.linalg.norm(reskin_state.data[:3])
+                    print("magnitude", magnitude - baseline_magnitude)
                 self.history.append(reskin_state.data)
                 data_dict["sensor_history"] = list(self.history)
                 self.reskin_publisher.pub_keypoints(data_dict, topic_name="reskin")
                 self.timer.end_loop()
-
+                counter += 1
             except KeyboardInterrupt:
                 break
 
