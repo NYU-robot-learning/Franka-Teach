@@ -5,6 +5,7 @@ from frankateach.network import ZMQKeypointPublisher, ZMQKeypointSubscriber
 from frankateach.utils import FrequencyTimer, notify_component_start
 
 from reskin_sensor import ReSkinProcess
+import numpy as np
 
 
 class ReskinSensorPublisher:
@@ -34,11 +35,9 @@ class ReskinSensorPublisher:
 
     def stream(self):
         notify_component_start("Reskin sensors")
-        import numpy as np
-        counter = 0
-        reskin_state = self.sensor_proc.get_data(1)[0]
-        baseline_magnitude = np.linalg.norm(reskin_state.data[:3])
 
+        i = 0
+        baseline = None 
         while True:
             try:
                 self.timer.start_loop()
@@ -46,14 +45,26 @@ class ReskinSensorPublisher:
                 data_dict = {}
                 data_dict["timestamp"] = reskin_state.time
                 data_dict["sensor_values"] = reskin_state.data
-                if counter % 100 == 0:
-                    magnitude = np.linalg.norm(reskin_state.data[:3])
-                    print("magnitude", magnitude - baseline_magnitude)
+
                 self.history.append(reskin_state.data)
+
+                if baseline is None and len(self.history) >= 5:
+                    # Calculate baseline from first 5 samples
+                    history_list = list(self.history)
+                    baseline = np.mean(history_list[:5], axis=0)
+                    print(f"Baseline fixed: {baseline[:3]} (from first 5 samples)")
+
+                current_data = reskin_state.data
+                if baseline is not None:
+                    adjusted_data = current_data - baseline
+                    adjusted_norm = np.linalg.norm(adjusted_data[:3])
+                    if i % 100 == 0:
+                        print(f"Adjusted norm: {adjusted_norm:.4f}")
+
                 data_dict["sensor_history"] = list(self.history)
                 self.reskin_publisher.pub_keypoints(data_dict, topic_name="reskin")
                 self.timer.end_loop()
-                counter += 1
+                i += 1
             except KeyboardInterrupt:
                 break
 
