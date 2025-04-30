@@ -7,4 +7,4 @@ demo_num: 0
 collect_img: True
 collect_depth: False
 collect_state: True
-collect_reskin: False
+collect_reskin: True

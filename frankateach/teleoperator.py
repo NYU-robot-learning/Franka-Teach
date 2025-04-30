@@ -27,13 +27,21 @@ import numpy as np
 from numpy.linalg import pinv
 
 
-def get_relative_affine(init_affine, current_affine):
+def get_relative_affine(init_affine, current_affine, deoxys_config_path):
+
     H_V_des = pinv(init_affine) @ current_affine
 
     # Transform to robot frame.
     relative_affine_rot = (pinv(H_R_V) @ H_V_des @ H_R_V)[:3, :3]
     relative_affine_trans = (pinv(H_R_V_star) @ H_V_des @ H_R_V_star)[:3, 3]
 
+    # Mirror the x-axis and y-axis for left arm setup
+    if "deoxys_left" in deoxys_config_path:
+        relative_affine_trans[0] *= -1  
+        relative_affine_trans[1] *= -1 
+        relative_affine_rot[:, 0] *= -1  
+        relative_affine_rot[:, 1] *= -1
+        
     # Homogeneous coordinates
     relative_affine = np.block(
         [[relative_affine_rot, relative_affine_trans.reshape(3, 1)], [0, 0, 0, 1]]
@@ -48,6 +56,8 @@ class FrankaOperator:
         init_gripper_state="open",
         teleop_mode="robot",
         home_offset=[0, 0, 0],
+        deoxys_config_path=None,
+        continuous_gripper=False,   
     ) -> None:
         # Subscribe controller state
         self._controller_state_subscriber = ZMQKeypointSubscriber(
@@ -73,7 +83,8 @@ class FrankaOperator:
         self.home_offset = (
             np.array(home_offset) if home_offset is not None else np.zeros(3)
         )
-
+        self.deoxys_config_path = deoxys_config_path
+        self.continuous_gripper = continuous_gripper
     def _apply_retargeted_angles(self) -> None:
         self.controller_state = self._controller_state_subscriber.recv_keypoints()
 
@@ -130,7 +141,7 @@ class FrankaOperator:
 
         if self.start_teleop and self.teleop_mode == "robot":
             relative_affine = get_relative_affine(
-                self.init_affine, self.controller_state.right_affine
+                self.init_affine, self.controller_state.right_affine, self.deoxys_config_path
             )
         else:
             relative_affine = np.zeros((4, 4))
@@ -138,10 +149,28 @@ class FrankaOperator:
 
         gripper_action = None
         if self.teleop_mode == "robot":
-            if self.controller_state.right_index_trigger > 0.5:
-                gripper_action = GRIPPER_CLOSE
-            elif self.controller_state.right_hand_trigger > 0.5:
-                gripper_action = GRIPPER_OPEN
+            if self.continuous_gripper:
+                # Initialize or update last gripper state
+                if not hasattr(self, 'last_gripper_state'):
+                    self.last_gripper_state = self.gripper_state
+                
+                # Calculate gripper change based on trigger values
+                gripper_change = 0
+                if self.controller_state.right_index_trigger > 0.5:
+                    # Gradually close (move towards 1)
+                    gripper_change = 0.05 * GRIPPER_CLOSE
+                elif self.controller_state.right_hand_trigger > 0.5:
+                    # Gradually open (move towards -1)
+                    gripper_change = 0.05 * GRIPPER_OPEN
+                
+                # Update gripper state with change, clamping between -1 and 1
+                gripper_action = np.clip(self.last_gripper_state + gripper_change, GRIPPER_OPEN, GRIPPER_CLOSE)
+                self.last_gripper_state = gripper_action
+            else:
+                if self.controller_state.right_index_trigger > 0.5:
+                    gripper_action = GRIPPER_CLOSE
+                elif self.controller_state.right_hand_trigger > 0.5:
+                    gripper_action = GRIPPER_OPEN
 
         if gripper_action is not None and gripper_action != self.gripper_state:
             self.gripper_state = gripper_action
@@ -153,7 +182,13 @@ class FrankaOperator:
             )
 
             target_pos = self.home_pos + relative_pos
-            target_rot = self.home_rot @ relative_rot
+            # Mirror the home rotation for left arm before combining with relative rotation
+            if "deoxys_left" in self.deoxys_config_path:
+                home_rot_mirrored = self.home_rot.copy()
+                home_rot_mirrored[:2, :] *= -1
+                target_rot = home_rot_mirrored @ relative_rot
+            else:
+                target_rot = self.home_rot @ relative_rot
             target_quat = transform_utils.mat2quat(target_rot)
 
             target_pos = np.clip(
