@@ -9,7 +9,7 @@ from frankateach.constants import (
     GRIPPER_CLOSE,
     GRIPPER_OPEN,
     HOST,
-    CONTROL_PORT,
+    PORTS,
 )
 from frankateach.messages import FrankaAction, FrankaState
 from frankateach.network import (
@@ -27,6 +27,7 @@ except ImportError:
 class FrankaEnv(gym.Env):
     def __init__(
         self,
+        robot_repr,
         cam_ids=[1, 2, 3, 4, 51],
         width=640,
         height=480,
@@ -107,7 +108,9 @@ class FrankaEnv(gym.Env):
                 )
 
             if self.sensor_type == "reskin":
-                self.sensor_subscriber = ReskinSensorSubscriber()
+                self.sensor_subscriber = ReskinSensorSubscriber(
+                    port=PORTS[robot_repr]["reskin"]
+                )
 
                 self.sensor_prev_state = None
                 self.subtract_sensor_baseline = sensor_params[
@@ -117,7 +120,9 @@ class FrankaEnv(gym.Env):
                 # Call once to populate initial baseline
                 self._get_reskin_state(update_baseline=True)
 
-            self.action_request_socket = create_request_socket(HOST, CONTROL_PORT)
+            self.action_request_socket = create_request_socket(
+                HOST, PORTS[robot_repr]["control"]
+            )
 
     def get_state(self):
         self.action_request_socket.send(b"get_state")

@@ -4,11 +4,26 @@ import numpy as np
 HOST = "localhost"
 CAM_PORT = 10005
 VR_CONTROLLER_STATE_PORT = 8889
+
 STATE_PORT = 8900
 CONTROL_PORT = 8901
 COMMANDED_STATE_PORT = 8902
 RESKIN_STREAM_PORT = 12005
 
+PORTS = {
+    "deoxys_left": {
+        "state": STATE_PORT,
+        "control": CONTROL_PORT,
+        "commanded_state": COMMANDED_STATE_PORT,
+        "reskin": RESKIN_STREAM_PORT,
+    },
+    "deoxys_right": {
+        "state": STATE_PORT + 50,
+        "control": CONTROL_PORT + 50,
+        "commanded_state": COMMANDED_STATE_PORT + 50,
+        "reskin": RESKIN_STREAM_PORT + 50,
+    },
+}
 
 STATE_TOPIC = "state"
 CONTROL_TOPIC = "control"

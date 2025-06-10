@@ -14,19 +14,13 @@ from frankateach.network import (
 from frankateach.sensors.reskin import ReskinSensorSubscriber
 from frankateach.utils import notify_component_start
 
-from frankateach.constants import (
-    COMMANDED_STATE_PORT,
-    HOST,
-    CAM_PORT,
-    STATE_PORT,
-    DEPTH_PORT_OFFSET,
-    RESKIN_STREAM_PORT,
-)
+from frankateach.constants import HOST, CAM_PORT, DEPTH_PORT_OFFSET, PORTS
 
 
 class DataCollector:
     def __init__(
         self,
+        robot: str,
         storage_path: str,
         demo_num: int,
         cams=[],  # camera info dicts
@@ -53,15 +47,15 @@ class DataCollector:
 
         if collect_state:
             self.state_socket = ZMQKeypointSubscriber(
-                host=HOST, port=STATE_PORT, topic="robot_state"
+                host=HOST, port=PORTS[robot]["state"], topic="robot_state"
             )
-            # self.state_socket = create_response_socket(HOST, STATE_PORT)
+
             self.commanded_state_socket = ZMQKeypointSubscriber(
-                host=HOST, port=COMMANDED_STATE_PORT, topic="commanded_robot_state"
+                host=HOST, port=PORTS[robot]["commanded_state"], topic="commanded_robot_state"
             )
 
         if collect_reskin:
-            self.reskin_subscriber = ReskinSensorSubscriber()
+            self.reskin_subscriber = ReskinSensorSubscriber(port=PORTS[robot]["reskin"])
 
         # Create the storage directory
         self.storage_path = Path(storage_path) / f"demonstration_{demo_num}"
@@ -233,7 +227,9 @@ class DataCollector:
         sensor_information = defaultdict(list)
         filename = self.storage_path / "reskin_sensor_values.h5"
 
-        print("Starting to record Reskin frames from port:", RESKIN_STREAM_PORT)
+        print(
+            "Starting to record Reskin frames from port:", self.reskin_subscriber.port
+        )
 
         while self.run_event.is_set():
             reskin_state = self.reskin_subscriber.get_sensor_state()

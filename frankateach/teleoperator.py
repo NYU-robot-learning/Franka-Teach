@@ -7,10 +7,8 @@ from frankateach.network import (
     ZMQKeypointPublisher,
 )
 from frankateach.constants import (
-    COMMANDED_STATE_PORT,
-    CONTROL_PORT,
+    PORTS,
     HOST,
-    STATE_PORT,
     VR_CONTROLLER_STATE_PORT,
     H_R_V,
     H_R_V_star,
@@ -45,6 +43,7 @@ def get_relative_affine(init_affine, current_affine):
 class FrankaOperator:
     def __init__(
         self,
+        robot,
         init_gripper_state="open",
         teleop_mode="robot",
         home_offset=[0, 0, 0],
@@ -54,9 +53,9 @@ class FrankaOperator:
             host=HOST, port=VR_CONTROLLER_STATE_PORT, topic="controller_state"
         )
 
-        self.action_socket = create_request_socket(HOST, CONTROL_PORT)
-        self.state_socket = ZMQKeypointPublisher(HOST, STATE_PORT)
-        self.commanded_state_socket = ZMQKeypointPublisher(HOST, COMMANDED_STATE_PORT)
+        self.action_socket = create_request_socket(HOST, PORTS[robot]["control"])
+        self.state_socket = ZMQKeypointPublisher(HOST, PORTS[robot]["state"])
+        self.commanded_state_socket = ZMQKeypointPublisher(HOST, PORTS[robot]["commanded_state"])
 
         # Class variables
         # self._save_states = save_states

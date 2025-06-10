@@ -1,6 +1,6 @@
 from collections import deque
 import time
-from frankateach.constants import HOST, RESKIN_STREAM_PORT
+from frankateach.constants import HOST
 from frankateach.network import ZMQKeypointPublisher, ZMQKeypointSubscriber
 from frankateach.utils import FrequencyTimer, notify_component_start
 
@@ -8,8 +8,8 @@ from reskin_sensor import ReSkinProcess
 
 
 class ReskinSensorPublisher:
-    def __init__(self, reskin_config):
-        self.reskin_publisher = ZMQKeypointPublisher(HOST, RESKIN_STREAM_PORT)
+    def __init__(self, reskin_config, port):
+        self.reskin_publisher = ZMQKeypointPublisher(HOST, port)
 
         self.timer = FrequencyTimer(100)
         self.reskin_config = reskin_config
@@ -52,10 +52,9 @@ class ReskinSensorPublisher:
 
 
 class ReskinSensorSubscriber:
-    def __init__(self):
-        self.reskin_subscriber = ZMQKeypointSubscriber(
-            HOST, RESKIN_STREAM_PORT, topic="reskin"
-        )
+    def __init__(self, port):
+        self.port = port
+        self.reskin_subscriber = ZMQKeypointSubscriber(HOST, port, topic="reskin")
 
     def __repr__(self):
         return "reskin"

@@ -1,6 +1,7 @@
 defaults:
   - _self_
   - camera
+  - robot
 
 storage_path: "path/to/data/extracted_data/task_name"
 demo_num: 0
