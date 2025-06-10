@@ -1,3 +1,4 @@
+from typing import Dict, List, Optional
 import cv2
 import gym
 import numpy as np
@@ -12,7 +13,7 @@ from frankateach.constants import (
     HOST,
     PORTS,
 )
-from frankateach.messages import FrankaAction
+from frankateach.messages import FrankaAction, FrankaState
 from frankateach.network import (
     ZMQCameraSubscriber,
     create_request_socket,
@@ -28,20 +29,19 @@ except ImportError:
 class BimanualFrankaEnv(gym.Env):
     def __init__(
         self,
-        left_robot_repr,
-        right_robot_repr,
-        cam_ids=[1, 2, 3, 4, 51],
-        width=640,
-        height=480,
-        use_robot=True,
-        sensor_type=None,
-        sensor_params=None,
+        robot_repr: Dict[str, str],
+        cam_ids: List[int] = [1, 2, 3, 4, 51],
+        width: int = 640,
+        height: int = 480,
+        use_robot: bool = True,
+        sensor_type: Optional[str] = None,
+        sensor_params: Optional[Dict] = None,
     ):
         super(BimanualFrankaEnv, self).__init__()
         self.width = width
         self.height = height
         self.channels = 3
-        self.feature_dim = 8
+        self.feature_dim = 8 * 2  # 8 features for each arm (pos, quat, gripper)
         # Double the action dimension for two arms
         self.action_dim = 14  # (pos, axis angle, gripper) for each arm
 
@@ -50,8 +50,8 @@ class BimanualFrankaEnv(gym.Env):
         self.sensor_params = sensor_params
 
         # Store robot representations
-        self.left_robot_repr = left_robot_repr
-        self.right_robot_repr = right_robot_repr
+        self.left_robot_repr = robot_repr["left"]
+        self.right_robot_repr = robot_repr["right"]
 
         self.n_channels = 3
         self.reward = 0
@@ -74,25 +74,13 @@ class BimanualFrankaEnv(gym.Env):
         }
 
         # Features and proprioceptive for both arms
-        obs_space["left_features"] = gym.spaces.Box(
+        obs_space["features"] = gym.spaces.Box(
             low=-float("inf"),
             high=float("inf"),
             shape=(self.feature_dim,),
             dtype=np.float32,
         )
-        obs_space["right_features"] = gym.spaces.Box(
-            low=-float("inf"),
-            high=float("inf"),
-            shape=(self.feature_dim,),
-            dtype=np.float32,
-        )
-        obs_space["left_proprioceptive"] = gym.spaces.Box(
-            low=-float("inf"),
-            high=float("inf"),
-            shape=(self.feature_dim,),
-            dtype=np.float32,
-        )
-        obs_space["right_proprioceptive"] = gym.spaces.Box(
+        obs_space["proprioceptive"] = gym.spaces.Box(
             low=-float("inf"),
             high=float("inf"),
             shape=(self.feature_dim,),
@@ -130,26 +118,31 @@ class BimanualFrankaEnv(gym.Env):
 
             # Initialize control sockets for both arms
             self.left_action_socket = create_request_socket(
-                HOST, PORTS[left_robot_repr]["control"]
+                HOST, PORTS[self.left_robot_repr]["control"]
             )
             self.right_action_socket = create_request_socket(
-                HOST, PORTS[right_robot_repr]["control"]
+                HOST, PORTS[self.right_robot_repr]["control"]
             )
 
             if self.sensor_type == "reskin":
                 self.left_sensor_subscriber = ReskinSensorSubscriber(
-                    port=PORTS[left_robot_repr]["reskin"]
+                    port=PORTS[self.left_robot_repr]["reskin"]
                 )
                 self.right_sensor_subscriber = ReskinSensorSubscriber(
-                    port=PORTS[right_robot_repr]["reskin"]
+                    port=PORTS[self.right_robot_repr]["reskin"]
                 )
-                self.left_sensor_prev_state = None
-                self.right_sensor_prev_state = None
+                self.sensor_prev_state = {
+                    "left": None,
+                    "right": None,
+                }
                 self.subtract_sensor_baseline = sensor_params[
                     "subtract_sensor_baseline"
                 ]
+                self.sensor_baseline = {}
+                self._get_reskin_state(update_baseline=True)
 
-    def _send_action_to_arm(self, action, socket, is_left=True):
+    @staticmethod
+    def _send_action_to_arm(action, socket, reset=False):
         pos = action[:3]
         quat = action[3:7]
         gripper = action[-1]
@@ -162,7 +155,7 @@ class BimanualFrankaEnv(gym.Env):
             pos=pos,
             quat=quat,
             gripper=gripper,
-            reset=False,
+            reset=reset,
             timestamp=time.time(),
         )
 
@@ -177,10 +170,10 @@ class BimanualFrankaEnv(gym.Env):
         # Send actions to both arms in parallel
         with ThreadPoolExecutor(max_workers=2) as executor:
             left_future = executor.submit(
-                self._send_action_to_arm, left_action, self.left_action_socket, True
+                self._send_action_to_arm, left_action, self.left_action_socket
             )
             right_future = executor.submit(
-                self._send_action_to_arm, right_action, self.right_action_socket, False
+                self._send_action_to_arm, right_action, self.right_action_socket
             )
 
             self.left_franka_state = left_future.result()
@@ -196,29 +189,21 @@ class BimanualFrankaEnv(gym.Env):
 
         # Construct observation dictionary
         obs = {
-            "left_features": np.concatenate(
+            "features": np.concatenate(
                 (
                     self.left_franka_state.pos,
                     self.left_franka_state.quat,
                     [self.left_franka_state.gripper],
-                )
-            ),
-            "right_features": np.concatenate(
-                (
                     self.right_franka_state.pos,
                     self.right_franka_state.quat,
                     [self.right_franka_state.gripper],
                 )
             ),
-            "left_proprioceptive": np.concatenate(
+            "proprioceptive": np.concatenate(
                 (
                     self.left_franka_state.pos,
                     self.left_franka_state.quat,
                     [self.left_franka_state.gripper],
-                )
-            ),
-            "right_proprioceptive": np.concatenate(
-                (
                     self.right_franka_state.pos,
                     self.right_franka_state.quat,
                     [self.right_franka_state.gripper],
@@ -245,33 +230,30 @@ class BimanualFrankaEnv(gym.Env):
     def reset(self):
         print("resetting bimanual environment")
 
-        # Create reset actions for both arms
-        franka_reset_action = FrankaAction(
-            pos=np.zeros(3),
-            quat=np.zeros(4),
-            gripper=GRIPPER_OPEN,
-            reset=True,
-            timestamp=time.time(),
-        )
+        # Reset both arms to a neutral position
+        franka_reset_action = np.zeros(self.action_dim, dtype=np.float32)
+        franka_reset_action[-1] = GRIPPER_OPEN  # Open gripper for reset
 
         # Send reset commands to both arms in parallel
         with ThreadPoolExecutor(max_workers=2) as executor:
             left_future = executor.submit(
-                lambda: self.left_action_socket.send(
-                    bytes(pickle.dumps(franka_reset_action, protocol=-1))
-                )
+                self._send_action_to_arm,
+                franka_reset_action,
+                self.left_action_socket,
+                reset=True,
             )
             right_future = executor.submit(
-                lambda: self.right_action_socket.send(
-                    bytes(pickle.dumps(franka_reset_action, protocol=-1))
-                )
+                self._send_action_to_arm,
+                franka_reset_action,
+                self.right_action_socket,
+                reset=True,
             )
-            left_future.result()
-            right_future.result()
 
-            # Get states from both arms
-            self.left_franka_state = pickle.loads(self.left_action_socket.recv())
-            self.right_franka_state = pickle.loads(self.right_action_socket.recv())
+            left_franka_state: FrankaState = left_future.result()
+            right_franka_state: FrankaState = right_future.result()
+
+            self.left_franka_state = left_franka_state
+            self.right_franka_state = right_franka_state
 
         # Get camera images
         image_dict = {}
@@ -283,32 +265,24 @@ class BimanualFrankaEnv(gym.Env):
 
         # Construct observation dictionary
         obs = {
-            "left_features": np.concatenate(
+            "features": np.concatenate(
                 (
-                    self.left_franka_state.pos,
-                    self.left_franka_state.quat,
-                    [self.left_franka_state.gripper],
+                    left_franka_state.pos,
+                    left_franka_state.quat,
+                    [left_franka_state.gripper],
+                    right_franka_state.pos,
+                    right_franka_state.quat,
+                    [right_franka_state.gripper],
                 )
             ),
-            "right_features": np.concatenate(
+            "proprioceptive": np.concatenate(
                 (
-                    self.right_franka_state.pos,
-                    self.right_franka_state.quat,
-                    [self.right_franka_state.gripper],
-                )
-            ),
-            "left_proprioceptive": np.concatenate(
-                (
-                    self.left_franka_state.pos,
-                    self.left_franka_state.quat,
-                    [self.left_franka_state.gripper],
-                )
-            ),
-            "right_proprioceptive": np.concatenate(
-                (
-                    self.right_franka_state.pos,
-                    self.right_franka_state.quat,
-                    [self.right_franka_state.gripper],
+                    left_franka_state.pos,
+                    left_franka_state.quat,
+                    [left_franka_state.gripper],
+                    right_franka_state.pos,
+                    right_franka_state.quat,
+                    [right_franka_state.gripper],
                 )
             ),
         }
@@ -341,32 +315,19 @@ class BimanualFrankaEnv(gym.Env):
                     sensor_state["sensor_values"], dtype=np.float32
                 )
                 baseline_meas.append(sensor_values)
-            baseline = np.mean(baseline_meas, axis=0)
+            self.sensor_baseline[arm_prefix] = np.mean(baseline_meas, axis=0)
             if self.subtract_sensor_baseline:
-                if arm_prefix == "left":
-                    self.left_sensor_prev_state = sensor_values - baseline
-                else:
-                    self.right_sensor_prev_state = sensor_values - baseline
+                self.sensor_prev_state[arm_prefix] = (
+                    sensor_values - self.sensor_baseline[arm_prefix]
+                )
             else:
-                if arm_prefix == "left":
-                    self.left_sensor_prev_state = sensor_values
-                else:
-                    self.right_sensor_prev_state = sensor_values
+                self.sensor_prev_state[arm_prefix] = sensor_values
 
         if self.subtract_sensor_baseline:
-            sensor_values = sensor_values - baseline
+            sensor_values = sensor_values - self.sensor_baseline[arm_prefix]
 
-        prev_state = (
-            self.left_sensor_prev_state
-            if arm_prefix == "left"
-            else self.right_sensor_prev_state
-        )
-        sensor_diff = sensor_values - prev_state
-
-        if arm_prefix == "left":
-            self.left_sensor_prev_state = sensor_values
-        else:
-            self.right_sensor_prev_state = sensor_values
+        sensor_diff = sensor_values - self.sensor_prev_state[arm_prefix]
+        self.sensor_prev_state[arm_prefix] = sensor_values
 
         reskin_state = {}
         for sensor_idx in range(2):  # 2 sensors per arm
