@@ -348,3 +348,17 @@ class BimanualFrankaEnv(gym.Env):
             return np.concatenate(image_list, axis=1)
         else:
             raise NotImplementedError
+
+
+if __name__ == "__main__":
+    # Example usage
+    robot_repr = {
+        "left": "deoxys_left",
+        "right": "deoxys_right",
+    }
+    env = BimanualFrankaEnv(robot_repr=robot_repr, cam_ids=[1, 2])
+    obs = env.reset()
+    print("Initial Observation:", obs)
+    import ipdb
+
+    ipdb.set_trace()  # Debugging breakpoint

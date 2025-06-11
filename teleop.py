@@ -9,7 +9,7 @@ def start_teleop(
     robot, init_gripper_state="open", teleop_mode="robot", home_offset=None
 ):
     operator = FrankaOperator(
-        robot_config=robot,
+        robot=robot,
         init_gripper_state=init_gripper_state,
         teleop_mode=teleop_mode,
         home_offset=home_offset,
