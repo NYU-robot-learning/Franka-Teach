@@ -197,6 +197,7 @@ class DataCollector:
             state = self.state_socket.recv_keypoints()
             commanded_state = self.commanded_state_socket.recv_keypoints()
             states.append(state)
+            print(state.start_teleop)
             commanded_states.append(commanded_state)
 
         with open(filename, "wb") as f:
@@ -205,6 +206,8 @@ class DataCollector:
         with open(cmd_filename, "wb") as f:
             pickle.dump(commanded_states, f)
 
+
+        
         print("Saved states to ", filename)
         # self.state_socket.close()
         self.state_socket.stop()

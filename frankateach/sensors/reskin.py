@@ -4,7 +4,7 @@ from frankateach.constants import HOST
 from frankateach.network import ZMQKeypointPublisher, ZMQKeypointSubscriber
 from frankateach.utils import FrequencyTimer, notify_component_start
 
-from reskin_sensor import ReSkinProcess
+#from reskin_sensor import ReSkinProcess
 
 
 class ReskinSensorPublisher:

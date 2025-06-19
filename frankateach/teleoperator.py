@@ -1,5 +1,5 @@
 import time
-import pickle
+import dill as pickle
 from frankateach.utils import notify_component_start
 from frankateach.network import (
     ZMQKeypointSubscriber,

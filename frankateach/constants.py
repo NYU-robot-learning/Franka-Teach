@@ -24,6 +24,7 @@ PORTS = {
         "reskin": RESKIN_STREAM_PORT + 50,
     },
 }
+INTERNET_HOST = '10.19.143.251'
 
 STATE_TOPIC = "state"
 CONTROL_TOPIC = "control"

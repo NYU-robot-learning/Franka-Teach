@@ -150,7 +150,6 @@ class ZMQCameraPublisher(object):
         self.socket.close()
         self.context.term()
 
-
 class ZMQCameraSubscriber(threading.Thread):
     def __init__(self, host, port, topic_type):
         self._host, self._port, self._topic_type = host, port, topic_type
@@ -187,7 +186,8 @@ class ZMQCameraSubscriber(threading.Thread):
         striped_data = raw_data.lstrip(b"depth_image ")
         data = pickle.loads(striped_data)
         depth_image = bl.unpack_array(data["depth_image"])
-        return np.array(depth_image, dtype=np.int16), data["timestamp"]
+        #return np.array(depth_image, dtype=np.int16), data["timestamp"]
+        return np.array(depth_image, dtype=np.float32), data["timestamp"]
 
     def stop(self):
         print("Closing the subscriber socket in {}:{}.".format(self._host, self._port))

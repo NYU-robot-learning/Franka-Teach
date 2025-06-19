@@ -9,7 +9,7 @@ traj_interpolator_cfg:
 Kp:
   # translation: 350.0
   # rotation: 300.0
-  translation: 150.0
+  translation: 300.0
   rotation: 250.0
 
 action_scale:

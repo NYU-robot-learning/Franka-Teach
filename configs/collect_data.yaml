@@ -3,7 +3,7 @@ defaults:
   - camera
   - robot
 
-storage_path: "path/to/data/extracted_data/task_name"
+storage_path: "/home/david/egozero/Franka-Teach/data/extracted_data/0331_calib_left_demo_7"
 demo_num: 0
 collect_img: True
 collect_depth: False

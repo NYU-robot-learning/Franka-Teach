@@ -9,11 +9,13 @@ from frankateach.constants import (
     GRIPPER_CLOSE,
     GRIPPER_OPEN,
     HOST,
+    INTERNET_HOST,
     PORTS,
 )
 from frankateach.messages import FrankaAction, FrankaState
 from frankateach.network import (
     ZMQCameraSubscriber,
+    AriaZMQSubscriber,
     create_request_socket,
 )
 
@@ -28,14 +30,17 @@ class FrankaEnv(gym.Env):
     def __init__(
         self,
         robot_repr,
-        cam_ids=[1, 2, 3, 4, 51],
+        cam_ids=[1, 2, 3, 4, 51, 6],  # 6 is aria
         width=640,
         height=480,
         use_robot=True,
         sensor_type=None,
         sensor_params=None,
+        is_aria=True,
     ):
         super(FrankaEnv, self).__init__()
+        if is_aria:
+            cam_ids.append("aria")
         self.width = width
         self.height = height
         self.channels = 3
@@ -100,12 +105,20 @@ class FrankaEnv(gym.Env):
         if self.use_robot:
             self.image_subscribers = {}
             for cam_idx in cam_ids:
-                port = CAM_PORT + cam_idx
-                self.image_subscribers[cam_idx] = ZMQCameraSubscriber(
-                    host=HOST,
-                    port=port,
-                    topic_type="RGB",
-                )
+                if cam_idx == 6:
+                    port = CAM_PORT + 6  # Aria set to 6
+                    self.image_subscribers[cam_idx] = AriaZMQSubscriber(
+                        host=INTERNET_HOST,  # Internet IP
+                        port=port,
+                        topic_type="RGB",
+                    )
+                else:
+                    port = CAM_PORT + cam_idx
+                    self.image_subscribers[cam_idx] = ZMQCameraSubscriber(
+                        host=HOST,
+                        port=port,
+                        topic_type="RGB",
+                    )
 
             if self.sensor_type == "reskin":
                 self.sensor_subscriber = ReskinSensorSubscriber(
