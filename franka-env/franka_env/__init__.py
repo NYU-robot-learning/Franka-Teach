@@ -11,3 +11,9 @@ register(
     entry_point="franka_env.envs:FrankaEnvRelative",
     max_episode_steps=400,
 )
+
+register(
+    id="FrankaBimanual-v1",
+    entry_point="franka_env.envs:FrankaBimanualEnv",
+    max_episode_steps=400,
+)

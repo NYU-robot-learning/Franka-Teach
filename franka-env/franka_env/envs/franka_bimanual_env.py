@@ -25,7 +25,7 @@ except ImportError:
     ReskinSensorSubscriber = None
 
 
-class BimanualFrankaEnv(gym.Env):
+class FrankaBimanualEnv(gym.Env):
     def __init__(
         self,
         robot_repr: Dict[str, str],
@@ -36,7 +36,7 @@ class BimanualFrankaEnv(gym.Env):
         sensor_type: Optional[str] = None,
         sensor_params: Optional[Dict] = None,
     ):
-        super(BimanualFrankaEnv, self).__init__()
+        super(FrankaBimanualEnv, self).__init__()
         self.width = width
         self.height = height
         self.channels = 3
@@ -342,7 +342,7 @@ if __name__ == "__main__":
         "left": "deoxys_left",
         "right": "deoxys_right",
     }
-    env = BimanualFrankaEnv(robot_repr=robot_repr, cam_ids=[1, 2])
+    env = FrankaBimanualEnv(robot_repr=robot_repr, cam_ids=[1, 2])
     obs = env.reset()
     print("Initial Observation:", obs)
     import ipdb
