@@ -4,7 +4,6 @@ import gym
 import numpy as np
 import time
 import pickle
-from concurrent.futures import ThreadPoolExecutor
 
 from frankateach.constants import (
     CAM_PORT,
@@ -160,24 +159,19 @@ class BimanualFrankaEnv(gym.Env):
         )
 
         socket.send(bytes(pickle.dumps(franka_action, protocol=-1)))
-        return pickle.loads(socket.recv())
 
     def step(self, action):
         # Split action into left and right arm actions
         left_action = action[:7]
         right_action = action[7:]
 
-        # Send actions to both arms in parallel
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            left_future = executor.submit(
-                self._send_action_to_arm, left_action, self.left_action_socket
-            )
-            right_future = executor.submit(
-                self._send_action_to_arm, right_action, self.right_action_socket
-            )
-
-            self.left_franka_state = left_future.result()
-            self.right_franka_state = right_future.result()
+        self._send_action_to_arm(left_action, self.left_action_socket)
+        self._send_action_to_arm(right_action, self.right_action_socket)
+        # Receive states from both arms
+        left_franka_state: FrankaState = pickle.loads(self.left_action_socket.recv())
+        right_franka_state: FrankaState = pickle.loads(self.right_action_socket.recv())
+        self.left_franka_state = left_franka_state
+        self.right_franka_state = right_franka_state
 
         # Get camera images
         image_dict = {}
@@ -235,25 +229,17 @@ class BimanualFrankaEnv(gym.Env):
         franka_reset_action[-1] = GRIPPER_OPEN  # Open gripper for reset
 
         # Send reset commands to both arms in parallel
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            left_future = executor.submit(
-                self._send_action_to_arm,
-                franka_reset_action,
-                self.left_action_socket,
-                reset=True,
-            )
-            right_future = executor.submit(
-                self._send_action_to_arm,
-                franka_reset_action,
-                self.right_action_socket,
-                reset=True,
-            )
+        self._send_action_to_arm(
+            franka_reset_action, self.left_action_socket, reset=True
+        )
+        self._send_action_to_arm(
+            franka_reset_action, self.right_action_socket, reset=True
+        )
+        left_franka_state: FrankaState = pickle.loads(self.left_action_socket.recv())
+        right_franka_state: FrankaState = pickle.loads(self.right_action_socket.recv())
 
-            left_franka_state: FrankaState = left_future.result()
-            right_franka_state: FrankaState = right_future.result()
-
-            self.left_franka_state = left_franka_state
-            self.right_franka_state = right_franka_state
+        self.left_franka_state = left_franka_state
+        self.right_franka_state = right_franka_state
 
         # Get camera images
         image_dict = {}
