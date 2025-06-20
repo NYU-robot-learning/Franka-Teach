@@ -300,7 +300,6 @@ class FrankaEnv(gym.Env):
             if self.use_gt_depth:
                 obs["depth"] = np.zeros((self.height, self.width))
 
-        print("returning obs")
         return obs
 
     def _get_reskin_state(self, update_baseline=False):
