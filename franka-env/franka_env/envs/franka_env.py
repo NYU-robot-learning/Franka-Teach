@@ -3,6 +3,7 @@ import gym
 import numpy as np
 import time
 import pickle
+from typing import Dict, List, Optional
 
 from frankateach.constants import (
     CAM_PORT,
@@ -11,11 +12,18 @@ from frankateach.constants import (
     HOST,
     INTERNET_HOST,
     PORTS,
+    K, 
+    D, 
+    T_robot_to_camera, 
+    T_aruco_to_camera,
+    left_camera_calibs,
+    FRANKA_INITIAL_POS,
+    FRANKA_INITIAL_QUAT,
 )
+
 from frankateach.messages import FrankaAction, FrankaState
 from frankateach.network import (
     ZMQCameraSubscriber,
-    AriaZMQSubscriber,
     create_request_socket,
 )
 
@@ -29,26 +37,35 @@ except ImportError:
 class FrankaEnv(gym.Env):
     def __init__(
         self,
-        robot_repr,
-        cam_ids=[1, 2, 3, 4, 51, 6],  # 6 is aria
-        width=640,
-        height=480,
-        use_robot=True,
-        sensor_type=None,
-        sensor_params=None,
-        is_aria=True,
+        robot_repr: Optional[Dict] = None,
+        cam_ids: List[int] = [1, 2, 3, 4, 51, 6],  # 6 is iphone
+        width: int = 640,
+        height: int = 480,
+        use_robot: bool = True,
+        use_gt_depth=False,
+        sensor_type: Optional[str] = None,
+        sensor_params: Optional[Dict] = None,
+        crop_h: Optional[int]=None,
+        crop_w: Optional[int]=None,
     ):
         super(FrankaEnv, self).__init__()
-        if is_aria:
-            cam_ids.append("aria")
         self.width = width
         self.height = height
-        self.channels = 3
+        self.crop_h = crop_h
+        self.crop_w = crop_w
+
         self.feature_dim = 8
         self.action_dim = 7  # (pos, axis angle, gripper)
-
         self.use_robot = use_robot
+        self.use_gt_depth = use_gt_depth
         self.sensor_type = sensor_type
+        
+        self.n_channels = 3
+        self.reward = 0
+
+        self.franka_state = None
+        self.curr_images = None
+
         if sensor_type is not None:
             assert sensor_type in ["reskin"]
             assert (
@@ -58,12 +75,6 @@ class FrankaEnv(gym.Env):
                 self.n_sensors = 2
                 self.sensor_dim = 15
         self.sensor_params = sensor_params
-
-        self.n_channels = 3
-        self.reward = 0
-
-        self.franka_state = None
-        self.curr_images = None
 
         self.action_space = gym.spaces.Box(
             low=-float("inf"), high=float("inf"), shape=(self.action_dim,)
@@ -104,20 +115,22 @@ class FrankaEnv(gym.Env):
 
         if self.use_robot:
             self.image_subscribers = {}
-            for cam_idx in cam_ids:
-                if cam_idx == 6:
-                    port = CAM_PORT + 6  # Aria set to 6
-                    self.image_subscribers[cam_idx] = AriaZMQSubscriber(
-                        host=INTERNET_HOST,  # Internet IP
-                        port=port,
-                        topic_type="RGB",
-                    )
-                else:
-                    port = CAM_PORT + cam_idx
-                    self.image_subscribers[cam_idx] = ZMQCameraSubscriber(
-                        host=HOST,
-                        port=port,
-                        topic_type="RGB",
+            if self.use_gt_depth:
+                self.depth_subscribers = {}
+            for cam_id in cam_ids:
+                port = CAM_PORT + cam_id
+                self.image_subscribers[cam_id] = ZMQCameraSubscriber(
+                    host=INTERNET_HOST if cam_id == 6 else HOST,
+                    port=port,
+                    topic_type="RGB",
+                )
+
+                if self.use_gt_depth:
+                    depth_port = CAM_PORT + cam_id + 1000  # depth offset =1000
+                    self.depth_subscribers[cam_id] = ZMQCameraSubscriber(
+                        host=INTERNET_HOST if cam_id == 6 else HOST,
+                        port=depth_port,
+                        topic_type="Depth",
                     )
 
             if self.sensor_type == "reskin":
@@ -167,11 +180,31 @@ class FrankaEnv(gym.Env):
         self.franka_state = franka_state
 
         image_dict = {}
-        self.curr_images = []
         for cam_id, subscriber in self.image_subscribers.items():
             image, _ = subscriber.recv_rgb_image()
+            # crop the image
+            if self.crop_h is not None and self.crop_w is not None:
+                h, w, _ = image.shape
+                image = image[
+                    int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
+                    int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
+                ]
             image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
-            self.curr_images.append(image)
+        self.curr_images = image_dict
+
+        if self.use_gt_depth:
+            depth_dict = {}
+            for cam_id, subscriber in self.depth_subscribers.items():
+                depth, _ = subscriber.recv_depth_image()
+
+                if self.crop_h is not None and self.crop_w is not None:
+                    h, w = depth.shape
+                    depth = depth[
+                        int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
+                        int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
+                    ]
+
+                depth_dict[f"depth{cam_id}"] =  depth_dict[f"depth{cam_id}"] = cv2.resize(depth, (self.width, self.height))
 
         obs = {
             "features": np.concatenate(
@@ -189,53 +222,84 @@ class FrankaEnv(gym.Env):
                 pass
 
         obs.update(image_dict)
-        # for i, image in image_dict.items():
-        #     obs[f"pixels{i}"] = cv2.resize(image, (self.width, self.height))
+        if self.use_gt_depth:
+            obs.update(depth_dict)
         return obs, self.reward, False, False, {}
 
     def reset(self):
-        print("resetting")
-        # TODO: send b"reset" to the robot instead of this action
-        franka_reset_action = FrankaAction(
-            pos=np.zeros(3),
-            quat=np.zeros(4),
-            gripper=GRIPPER_OPEN,
-            reset=True,
-            timestamp=time.time(),
-        )
+        if self.use_robot:
+            print("resetting")
+            # TODO: send b"reset" to the robot instead of this action
+            franka_reset_action = FrankaAction(
+                pos=FRANKA_INITIAL_POS,
+                quat=FRANKA_INITIAL_QUAT,
+                gripper=GRIPPER_OPEN,
+                reset=True,
+                timestamp=time.time(),
+            )
 
-        self.action_request_socket.send(
-            bytes(pickle.dumps(franka_reset_action, protocol=-1))
-        )
-        franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
-        self.franka_state = franka_state
-        print("reset done: ", franka_state)
+            self.action_request_socket.send(
+                bytes(pickle.dumps(franka_reset_action, protocol=-1))
+            )
+            franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+            self.franka_state = franka_state
+            print("reset done: ", franka_state)
 
-        image_dict = {}
-        self.curr_images = []
-        for cam_id, subscriber in self.image_subscribers.items():
-            image, _ = subscriber.recv_rgb_image()
-            image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
-            self.curr_images.append(image)
+            image_dict = {}
+            for cam_id, subscriber in self.image_subscribers.items():
+                image, _ = subscriber.recv_rgb_image()
+                # crop the image
+                if self.crop_h is not None and self.crop_w is not None:
+                    h, w, _ = image.shape
+                    image = image[
+                        int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
+                        int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
+                    ]
+                image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
+            self.curr_images = image_dict
 
-        obs = {
-            "features": np.concatenate(
-                (franka_state.pos, franka_state.quat, [franka_state.gripper])
-            ),
-            "proprioceptive": np.concatenate(
-                (franka_state.pos, franka_state.quat, [franka_state.gripper])
-            ),
-        }
-        if self.sensor_type == "reskin":
-            try:
-                reskin_state = self._get_reskin_state(update_baseline=True)
-                obs.update(reskin_state)
-            except KeyError:
-                pass
+            if self.use_gt_depth:
+                depth_dict = {}
+                for cam_id, subscriber in self.depth_subscribers.items():
+                    depth, _ = subscriber.recv_depth_image()
 
-        obs.update(image_dict)
-        # for i, image in enumerate(image_list):
-        #     obs[f"pixels{i}"] = cv2.resize(image, (self.width, self.height))
+                    if self.crop_h is not None and self.crop_w is not None:
+                        h, w = depth.shape
+                        depth = depth[
+                            int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
+                            int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
+                        ]
+
+                    depth_dict[f"depth{cam_id}"] = cv2.resize(depth, (self.width, self.height))
+
+            obs = {
+                "features": np.concatenate(
+                    (franka_state.pos, franka_state.quat, [franka_state.gripper])
+                ),
+                "proprioceptive": np.concatenate(
+                    (franka_state.pos, franka_state.quat, [franka_state.gripper])
+                ),
+            }
+            if self.sensor_type == "reskin":
+                try:
+                    reskin_state = self._get_reskin_state(update_baseline=True)
+                    obs.update(reskin_state)
+                except KeyError:
+                    pass
+
+            obs.update(image_dict)
+            if self.use_gt_depth:
+                obs.update(depth_dict)
+
+        else:
+            obs = {}
+            obs["features"] = np.zeros(self.feature_dim)
+            obs["pixels"] = np.zeros((self.height, self.width, self.n_channels))
+            obs["pixels6"] = np.zeros((self.height, self.width, self.n_channels))
+            obs["depth6"] = np.zeros((self.height, self.width))
+            if self.use_gt_depth:
+                obs["depth"] = np.zeros((self.height, self.width))
+
         print("returning obs")
         return obs
 
@@ -271,12 +335,18 @@ class FrankaEnv(gym.Env):
             ]
         return reskin_state
 
-    def render(self, mode="rgb_array", width=640, height=480):
+    def render(self, mode="rgb_array", cam_id=None, width=640, height=480):
         assert self.curr_images is not None, "Must call reset() before render()"
         if mode == "rgb_array":
+            if cam_id is not None:
+                return self.curr_images[f"pixels{cam_id}"]
             image_list = []
-            for im in self.curr_images:
-                image_list.append(cv2.resize(im, (width, height)))
+            for key, im in self.curr_images.items():
+                h, w = im.shape[:2]
+                aspect_ratio = w / h
+                new_height = height  # desired height
+                new_width = int(aspect_ratio * new_height)
+                image_list.append(cv2.resize(im, (new_width, new_height)))
 
             return np.concatenate(image_list, axis=1)
         else:

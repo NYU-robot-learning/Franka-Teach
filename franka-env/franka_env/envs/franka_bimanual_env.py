@@ -11,7 +11,16 @@ from frankateach.constants import (
     GRIPPER_OPEN,
     HOST,
     PORTS,
+    INTERNET_HOST,
+    K, 
+    D, 
+    T_robot_to_camera, 
+    T_aruco_to_camera,
+    left_camera_calibs,
+    FRANKA_INITIAL_POS,
+    FRANKA_INITIAL_QUAT,
 )
+
 from frankateach.messages import FrankaAction, FrankaState
 from frankateach.network import (
     ZMQCameraSubscriber,
@@ -28,29 +37,33 @@ except ImportError:
 class FrankaBimanualEnv(gym.Env):
     def __init__(
         self,
-        robot_repr: Dict[str, str],
-        cam_ids: List[int] = [1, 2, 3, 4, 51],
+        robot_repr: Dict[str, str] = dict(left="deoxys_left", right="deoxys_right"),
+        cam_ids: List[int] = [1, 2, 3, 4, 51, 6],
         width: int = 640,
         height: int = 480,
         use_robot: bool = True,
+        use_gt_depth=False,
         sensor_type: Optional[str] = None,
         sensor_params: Optional[Dict] = None,
+        crop_h: Optional[int]=None,
+        crop_w: Optional[int]=None,
     ):
         super(FrankaBimanualEnv, self).__init__()
         self.width = width
         self.height = height
-        self.channels = 3
+        self.crop_h = crop_h
+        self.crop_w = crop_w
+
         self.feature_dim = 8 * 2  # 8 features for each arm (pos, quat, gripper)
         # Double the action dimension for two arms
-        self.action_dim = 14  # (pos, axis angle, gripper) for each arm
-
+        self.action_dim = 7 * 2  # (pos, axis angle, gripper) for each arm
+        self.use_gt_depth = use_gt_depth
         self.use_robot = use_robot
         self.sensor_type = sensor_type
-        self.sensor_params = sensor_params
-
+    
         # Store robot representations
-        self.left_robot_repr = robot_repr["left"]
-        self.right_robot_repr = robot_repr["right"]
+        self.left_robot_repr = robot_repr["left"]  if self.use_robot else None
+        self.right_robot_repr = robot_repr["right"] if self.use_robot else None
 
         self.n_channels = 3
         self.reward = 0
@@ -58,6 +71,16 @@ class FrankaBimanualEnv(gym.Env):
         self.left_franka_state = None
         self.right_franka_state = None
         self.curr_images = None
+
+        if sensor_type is not None:
+            assert sensor_type in ["reskin"]
+            assert (
+                ReskinSensorSubscriber is not None
+            ), "ReskinSensorSubscriber not found"
+            if sensor_type == "reskin":
+                self.n_sensors = 2
+                self.sensor_dim = 15
+        self.sensor_params = sensor_params
 
         # Double the action space for two arms
         self.action_space = gym.spaces.Box(
@@ -107,13 +130,23 @@ class FrankaBimanualEnv(gym.Env):
         if self.use_robot:
             # Initialize camera subscribers
             self.image_subscribers = {}
-            for cam_idx in cam_ids:
-                port = CAM_PORT + cam_idx
-                self.image_subscribers[cam_idx] = ZMQCameraSubscriber(
-                    host=HOST,
+            if self.use_gt_depth:
+                self.depth_subscribers = {}
+            for cam_id in cam_ids:
+                port = CAM_PORT + cam_id
+                self.image_subscribers[cam_id] = ZMQCameraSubscriber(
+                    host=INTERNET_HOST if cam_id == 6 else HOST,
                     port=port,
                     topic_type="RGB",
                 )
+
+                if self.use_gt_depth:
+                    depth_port = CAM_PORT + cam_id + 1000  # depth offset =1000
+                    self.depth_subscribers[cam_id] = ZMQCameraSubscriber(
+                        host=INTERNET_HOST if cam_id == 6 else HOST,
+                        port=depth_port,
+                        topic_type="Depth",
+                    )
 
             # Initialize control sockets for both arms
             self.left_action_socket = create_request_socket(
@@ -175,12 +208,31 @@ class FrankaBimanualEnv(gym.Env):
 
         # Get camera images
         image_dict = {}
-        self.curr_images = []
         for cam_id, subscriber in self.image_subscribers.items():
             image, _ = subscriber.recv_rgb_image()
+            # crop the image
+            if self.crop_h is not None and self.crop_w is not None:
+                h, w, _ = image.shape
+                image = image[
+                    int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
+                    int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
+                ]
             image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
-            self.curr_images.append(image)
+        self.curr_images = image_dict
 
+        if self.use_gt_depth:
+            depth_dict = {}
+            for cam_id, subscriber in self.depth_subscribers.items():
+                depth, _ = subscriber.recv_depth_image()
+
+                if self.crop_h is not None and self.crop_w is not None:
+                    h, w = depth.shape
+                    depth = depth[
+                        int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
+                        int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
+                    ]
+
+                depth_dict[f"depth{cam_id}"] =  depth_dict[f"depth{cam_id}"] = cv2.resize(depth, (self.width, self.height))
         # Construct observation dictionary
         obs = {
             "features": np.concatenate(
@@ -219,74 +271,114 @@ class FrankaBimanualEnv(gym.Env):
                 pass
 
         obs.update(image_dict)
+        if self.use_gt_depth:
+            obs.update(depth_dict)
         return obs, self.reward, False, False, {}
 
     def reset(self):
-        print("resetting bimanual environment")
+        if self.use_robot:
+            print("resetting bimanual environment")
 
-        # Reset both arms to a neutral position
-        franka_reset_action = np.zeros(self.action_dim, dtype=np.float32)
-        franka_reset_action[-1] = GRIPPER_OPEN  # Open gripper for reset
-
-        # Send reset commands to both arms in parallel
-        self._send_action_to_arm(
-            franka_reset_action, self.left_action_socket, reset=True
-        )
-        self._send_action_to_arm(
-            franka_reset_action, self.right_action_socket, reset=True
-        )
-        left_franka_state: FrankaState = pickle.loads(self.left_action_socket.recv())
-        right_franka_state: FrankaState = pickle.loads(self.right_action_socket.recv())
-
-        self.left_franka_state = left_franka_state
-        self.right_franka_state = right_franka_state
-
-        # Get camera images
-        image_dict = {}
-        self.curr_images = []
-        for cam_id, subscriber in self.image_subscribers.items():
-            image, _ = subscriber.recv_rgb_image()
-            image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
-            self.curr_images.append(image)
-
-        # Construct observation dictionary
-        obs = {
-            "features": np.concatenate(
-                (
-                    left_franka_state.pos,
-                    left_franka_state.quat,
-                    [left_franka_state.gripper],
-                    right_franka_state.pos,
-                    right_franka_state.quat,
-                    [right_franka_state.gripper],
+            # Reset both arms to a neutral position
+            franka_reset_action = FrankaAction(
+                    pos=FRANKA_INITIAL_POS,
+                    quat=FRANKA_INITIAL_QUAT,
+                    gripper=GRIPPER_OPEN,
+                    reset=True,
+                    timestamp=time.time(),
                 )
-            ),
-            "proprioceptive": np.concatenate(
-                (
-                    left_franka_state.pos,
-                    left_franka_state.quat,
-                    [left_franka_state.gripper],
-                    right_franka_state.pos,
-                    right_franka_state.quat,
-                    [right_franka_state.gripper],
-                )
-            ),
-        }
+            
 
-        if self.sensor_type == "reskin":
-            try:
-                left_reskin_state = self._get_reskin_state(
-                    self.left_sensor_subscriber, "left", update_baseline=True
-                )
-                right_reskin_state = self._get_reskin_state(
-                    self.right_sensor_subscriber, "right", update_baseline=True
-                )
-                obs.update(left_reskin_state)
-                obs.update(right_reskin_state)
-            except KeyError:
-                pass
+            # Send reset commands to both arms in parallel
+            self._send_action_to_arm(
+                franka_reset_action, self.left_action_socket, reset=True
+            )
+            self._send_action_to_arm(
+                franka_reset_action, self.right_action_socket, reset=True
+            )
+            left_franka_state: FrankaState = pickle.loads(self.left_action_socket.recv())
+            right_franka_state: FrankaState = pickle.loads(self.right_action_socket.recv())
 
-        obs.update(image_dict)
+            self.left_franka_state = left_franka_state
+            self.right_franka_state = right_franka_state
+
+            # Get camera images
+            image_dict = {}
+            for cam_id, subscriber in self.image_subscribers.items():
+                image, _ = subscriber.recv_rgb_image()
+                
+                # crop the image
+                if self.crop_h is not None and self.crop_w is not None:
+                    h, w, _ = image.shape
+                    image = image[
+                        int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
+                        int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
+                    ]
+                image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
+            self.curr_images = image_dict
+
+            if self.use_gt_depth:
+                depth_dict = {}
+                for cam_id, subscriber in self.depth_subscribers.items():
+                    depth, _ = subscriber.recv_depth_image()
+
+                    if self.crop_h is not None and self.crop_w is not None:
+                        h, w = depth.shape
+                        depth = depth[
+                            int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
+                            int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
+                        ]
+
+                    depth_dict[f"depth{cam_id}"] = cv2.resize(depth, (self.width, self.height))
+            # Construct observation dictionary
+            obs = {
+                "features": np.concatenate(
+                    (
+                        left_franka_state.pos,
+                        left_franka_state.quat,
+                        [left_franka_state.gripper],
+                        right_franka_state.pos,
+                        right_franka_state.quat,
+                        [right_franka_state.gripper],
+                    )
+                ),
+                "proprioceptive": np.concatenate(
+                    (
+                        left_franka_state.pos,
+                        left_franka_state.quat,
+                        [left_franka_state.gripper],
+                        right_franka_state.pos,
+                        right_franka_state.quat,
+                        [right_franka_state.gripper],
+                    )
+                ),
+            }
+
+            if self.sensor_type == "reskin":
+                try:
+                    left_reskin_state = self._get_reskin_state(
+                        self.left_sensor_subscriber, "left", update_baseline=True
+                    )
+                    right_reskin_state = self._get_reskin_state(
+                        self.right_sensor_subscriber, "right", update_baseline=True
+                    )
+                    obs.update(left_reskin_state)
+                    obs.update(right_reskin_state)
+                except KeyError:
+                    pass
+
+            obs.update(image_dict)
+            if self.use_gt_depth:
+                obs.update(depth_dict)
+        else:  
+            obs = {}
+            obs["features"] = np.zeros(self.feature_dim)
+            obs["pixels"] = np.zeros((self.height, self.width, self.n_channels))
+            obs["pixels6"] = np.zeros((self.height, self.width, self.n_channels))
+            obs["depth6"] = np.zeros((self.height, self.width))
+            if self.use_gt_depth:
+                obs["depth"] = np.zeros((self.height, self.width))
+
         return obs
 
     def _get_reskin_state(self, sensor_subscriber, arm_prefix, update_baseline=False):
@@ -325,12 +417,19 @@ class FrankaBimanualEnv(gym.Env):
             ]
         return reskin_state
 
-    def render(self, mode="rgb_array", width=640, height=480):
+    def render(self, mode="rgb_array",cam_id = None, width=640, height=480):
         assert self.curr_images is not None, "Must call reset() before render()"
         if mode == "rgb_array":
+            if cam_id is not None:
+                return self.curr_images[f"pixels{cam_id}"]
             image_list = []
-            for im in self.curr_images:
-                image_list.append(cv2.resize(im, (width, height)))
+            for key, im in self.curr_images.items():
+                h, w = im.shape[:2]
+                aspect_ratio = w / h
+                new_height = height  # desired height
+                new_width = int(aspect_ratio * new_height)
+                image_list.append(cv2.resize(im, (new_width, new_height)))
+                
             return np.concatenate(image_list, axis=1)
         else:
             raise NotImplementedError

@@ -4,6 +4,7 @@ import numpy as np
 HOST = "localhost"
 CAM_PORT = 10005
 VR_CONTROLLER_STATE_PORT = 8889
+INTERNET_HOST = "10.19.143.251"  # One of IP on local computer
 
 STATE_PORT = 8900
 CONTROL_PORT = 8901
@@ -57,3 +58,80 @@ CONTROL_FREQ = 20
 STATE_FREQ = 100
 CAM_FPS = 30
 DEPTH_PORT_OFFSET = 1000
+
+# Franka Initial position and orientation
+FRANKA_INITIAL_POS = np.array([0.4579441, 0.0321529, 0.56579893]),
+FRANKA_INITIAL_QUAT=np.array([0.99984777, 0.00877362, 0.01497245, 0.00180537]),
+
+
+# Camera Constants Cage setting
+left_camera_calibs = np.load(
+    "/nas/projectaria/0331_calib_left_demo_7.npy",
+    allow_pickle=True,
+)[()]
+
+
+K = {
+    3: left_camera_calibs["cam_3"]["int"],
+    4: left_camera_calibs["cam_4"]["int"],
+    
+    "iphone": np.array(
+        [
+            [706.01969952, 0.0, 360.86504065],
+            [0.0, 706.15628068, 490.34852859],
+            [0.0, 0.0, 1.0],
+        ],
+    ),
+
+    #aria
+    "aria": np.array(
+        [
+            [610.94268799, 0.0, 703.5],
+            [0.0, 610.94268799, 703.5],
+            [0.0, 0.0,  1.0],
+        ],
+    )
+    
+}
+D = {
+    3: left_camera_calibs["cam_3"]["dist_coeff"],
+    4: left_camera_calibs["cam_4"]["dist_coeff"],
+
+    # iphone
+    "iphone": np.array(
+        [
+            [
+                2.97673215e-01,
+                -1.69844695e00,
+                1.65368204e-03,
+                3.61532041e-05,
+                3.03597517e00,
+            ],
+        ]
+    ),
+    
+    "aria": np.zeros(5, dtype=np.float32),
+}
+
+T_robot_to_camera = {
+    3: left_camera_calibs["cam_3"]["ext"],
+    4: left_camera_calibs["cam_4"]["ext"],
+}
+T_aruco_to_camera = {
+    2: np.array(
+        [
+            [0.87833182, 0.47753213, -0.0222771, -0.00709056],
+            [0.2047396, -0.41787251, -0.88513516, 0.28966185],
+            [-0.43198947, 0.77288138, -0.46480047, 1.12155578],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    ),
+    4: np.array(
+        [
+            [-0.90335721, 0.42750082, -0.03447882, 0.08824751],
+            [0.21219395, 0.3756293, -0.90215096, 0.2580675],
+            [-0.37271902, -0.82228078, -0.43004052, 1.20200965],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    ),
+}
