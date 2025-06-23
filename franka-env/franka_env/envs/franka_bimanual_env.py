@@ -193,6 +193,15 @@ class FrankaBimanualEnv(gym.Env):
 
         socket.send(bytes(pickle.dumps(franka_action, protocol=-1)))
 
+    def get_state(self):
+        self.left_action_socket.send(b"get_state")
+        self.right_action_socket.send(b"get_state")
+        left_franka_state: FrankaState = pickle.loads(self.left_action_socket.recv())
+        right_franka_state: FrankaState = pickle.loads(self.right_action_socket.recv())
+        self.left_franka_state = left_franka_state
+        self.right_franka_state = right_franka_state
+        return left_franka_state, right_franka_state
+    
     def step(self, action):
         # Split action into left and right arm actions
         left_action = action[:7]
