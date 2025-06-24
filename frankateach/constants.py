@@ -75,7 +75,7 @@ K = {
     3: left_camera_calibs["cam_3"]["int"],
     4: left_camera_calibs["cam_4"]["int"],
     
-    "iphone": np.array(
+    6: np.array(
         [
             [706.01969952, 0.0, 360.86504065],
             [0.0, 706.15628068, 490.34852859],
@@ -98,7 +98,7 @@ D = {
     4: left_camera_calibs["cam_4"]["dist_coeff"],
 
     # iphone
-    "iphone": np.array(
+    6: np.array(
         [
             [
                 2.97673215e-01,
