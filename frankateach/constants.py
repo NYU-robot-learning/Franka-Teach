@@ -4,7 +4,7 @@ import numpy as np
 HOST = "localhost"
 CAM_PORT = 10005
 VR_CONTROLLER_STATE_PORT = 8889
-INTERNET_HOST = "10.19.143.251"  # One of IP on local computer
+INTERNET_HOST = "10.21.118.95" # computer(that run stream_iphone.py) IP address 
 
 STATE_PORT = 8900
 CONTROL_PORT = 8901
@@ -25,7 +25,6 @@ PORTS = {
         "reskin": RESKIN_STREAM_PORT + 50,
     },
 }
-INTERNET_HOST = '10.19.143.251'
 
 STATE_TOPIC = "state"
 CONTROL_TOPIC = "control"
@@ -60,8 +59,8 @@ CAM_FPS = 30
 DEPTH_PORT_OFFSET = 1000
 
 # Franka Initial position and orientation
-FRANKA_INITIAL_POS = np.array([0.4579441, 0.0321529, 0.56579893]),
-FRANKA_INITIAL_QUAT=np.array([0.99984777, 0.00877362, 0.01497245, 0.00180537]),
+FRANKA_INITIAL_POS = np.array([0.4579441, 0.0321529, 0.76579893])
+FRANKA_INITIAL_QUAT=np.array([0.99984777, 0.00877362, 0.01497245, 0.00180537])
 
 
 # Camera Constants Cage setting
@@ -69,9 +68,15 @@ left_camera_calibs = np.load(
     "/nas/projectaria/0331_calib_left_demo_7.npy",
     allow_pickle=True,
 )[()]
+right_camera_calibs = np.load(
+    "/home/david/egozero/calib/calib_right_0321.npy",
+    allow_pickle=True,
+)[()]
 
 
 K = {
+    1: right_camera_calibs["cam_1"]["int"],
+    2: right_camera_calibs["cam_2"]["int"],
     3: left_camera_calibs["cam_3"]["int"],
     4: left_camera_calibs["cam_4"]["int"],
     
@@ -94,6 +99,8 @@ K = {
     
 }
 D = {
+    1: right_camera_calibs["cam_1"]["dist_coeff"],
+    2: right_camera_calibs["cam_2"]["dist_coeff"],
     3: left_camera_calibs["cam_3"]["dist_coeff"],
     4: left_camera_calibs["cam_4"]["dist_coeff"],
 
@@ -114,6 +121,8 @@ D = {
 }
 
 T_robot_to_camera = {
+    1: right_camera_calibs["cam_1"]["ext"],
+    2: right_camera_calibs["cam_2"]["ext"],
     3: left_camera_calibs["cam_3"]["ext"],
     4: left_camera_calibs["cam_4"]["ext"],
 }

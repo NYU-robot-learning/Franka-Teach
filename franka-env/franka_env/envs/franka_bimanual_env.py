@@ -204,9 +204,8 @@ class FrankaBimanualEnv(gym.Env):
     
     def step(self, action):
         # Split action into left and right arm actions
-        left_action = action[:7]
-        right_action = action[7:]
-
+        left_action = action[:8]
+        right_action = action[8:]
         self._send_action_to_arm(left_action, self.left_action_socket)
         self._send_action_to_arm(right_action, self.right_action_socket)
         # Receive states from both arms
@@ -282,21 +281,18 @@ class FrankaBimanualEnv(gym.Env):
         obs.update(image_dict)
         if self.use_gt_depth:
             obs.update(depth_dict)
-        return obs, self.reward, False, False, {}
+        return obs, self.reward, False, None
 
     def reset(self):
         if self.use_robot:
             print("resetting bimanual environment")
 
             # Reset both arms to a neutral position
-            franka_reset_action = FrankaAction(
-                    pos=FRANKA_INITIAL_POS,
-                    quat=FRANKA_INITIAL_QUAT,
-                    gripper=GRIPPER_OPEN,
-                    reset=True,
-                    timestamp=time.time(),
-                )
-            
+            franka_reset_action = np.concatenate([
+                FRANKA_INITIAL_POS, 
+                FRANKA_INITIAL_QUAT, 
+                np.array([GRIPPER_OPEN]),
+                ])        
 
             # Send reset commands to both arms in parallel
             self._send_action_to_arm(
@@ -310,7 +306,6 @@ class FrankaBimanualEnv(gym.Env):
 
             self.left_franka_state = left_franka_state
             self.right_franka_state = right_franka_state
-
             # Get camera images
             image_dict = {}
             for cam_id, subscriber in self.image_subscribers.items():
@@ -426,11 +421,11 @@ class FrankaBimanualEnv(gym.Env):
             ]
         return reskin_state
 
-    def render(self, mode="rgb_array",cam_id = None, width=640, height=480):
+    def render(self, mode="rgb_array",cam_idx = None, width=640, height=480):
         assert self.curr_images is not None, "Must call reset() before render()"
         if mode == "rgb_array":
-            if cam_id is not None:
-                return self.curr_images[f"pixels{cam_id}"]
+            if cam_idx is not None:
+                return self.curr_images[f"pixels{cam_idx}"]
             image_list = []
             for key, im in self.curr_images.items():
                 h, w = im.shape[:2]
