@@ -278,7 +278,8 @@ class FrankaBimanualEnv(gym.Env):
             except KeyError:
                 pass
 
-        obs.update(image_dict)
+        for key, image in self.curr_images.items():
+            obs[key] = image
         if self.use_gt_depth:
             obs.update(depth_dict)
         return obs, self.reward, False, None
@@ -371,7 +372,8 @@ class FrankaBimanualEnv(gym.Env):
                 except KeyError:
                     pass
 
-            obs.update(image_dict)
+            for key, image in self.curr_images.items():
+                obs[key] = image
             if self.use_gt_depth:
                 obs.update(depth_dict)
         else:  
