@@ -1,6 +1,5 @@
 pyzmq
 scipy
-opencv-python
 blosc
 hydra-core
 pyrealsense2

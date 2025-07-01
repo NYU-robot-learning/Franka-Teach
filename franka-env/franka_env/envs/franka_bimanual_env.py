@@ -17,8 +17,10 @@ from frankateach.constants import (
     T_robot_to_camera, 
     T_aruco_to_camera,
     left_camera_calibs,
-    FRANKA_INITIAL_POS,
-    FRANKA_INITIAL_QUAT,
+    LEFT_FRANKA_INITIAL_POS,
+    LEFT_FRANKA_INITIAL_QUAT,
+    RIGHT_FRANKA_INITIAL_POS,
+    RIGHT_FRANKA_INITIAL_QUAT,
 )
 
 from frankateach.messages import FrankaAction, FrankaState
@@ -290,18 +292,24 @@ class FrankaBimanualEnv(gym.Env):
             print("resetting bimanual environment")
 
             # Reset both arms to a neutral position
-            franka_reset_action = np.concatenate([
-                FRANKA_INITIAL_POS, 
-                FRANKA_INITIAL_QUAT, 
+            left_franka_reset_action = np.concatenate([
+                LEFT_FRANKA_INITIAL_POS, 
+                LEFT_FRANKA_INITIAL_QUAT, 
                 np.array([GRIPPER_OPEN]),
-                ])        
+                ])  
+
+            right_franka_reset_action = np.concatenate([
+                RIGHT_FRANKA_INITIAL_POS, 
+                RIGHT_FRANKA_INITIAL_QUAT, 
+                np.array([GRIPPER_OPEN]),
+            ])       
 
             # Send reset commands to both arms in parallel
             self._send_action_to_arm(
-                franka_reset_action, self.left_action_socket, reset=True
+                left_franka_reset_action, self.left_action_socket, reset=False
             )
             self._send_action_to_arm(
-                franka_reset_action, self.right_action_socket, reset=True
+                right_franka_reset_action, self.right_action_socket, reset=False
             )
             left_franka_state: FrankaState = pickle.loads(self.left_action_socket.recv())
             right_franka_state: FrankaState = pickle.loads(self.right_action_socket.recv())
