@@ -69,7 +69,7 @@ left_camera_calibs = np.load(
     allow_pickle=True,
 )[()]
 right_camera_calibs = np.load(
-    "/home/david/egozero/calib/calib_right_0321.npy",
+    "/home/david/egozero/calib/calib_right_0310.npy",
     allow_pickle=True,
 )[()]
 

@@ -225,7 +225,8 @@ class FrankaBimanualEnv(gym.Env):
                     int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
                     int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
                 ]
-            image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
+            image_dict[cam_id] = cv2.resize(image, (self.width, self.height))
+        self.curr_images = None
         self.curr_images = image_dict
 
         if self.use_gt_depth:
@@ -278,8 +279,8 @@ class FrankaBimanualEnv(gym.Env):
             except KeyError:
                 pass
 
-        for key, image in self.curr_images.items():
-            obs[key] = image
+        for cam_idx, image in self.curr_images.items():
+            obs[f"pixels{cam_idx}"] = cv2.resize(image, (self.width, self.height))
         if self.use_gt_depth:
             obs.update(depth_dict)
         return obs, self.reward, False, None
@@ -319,7 +320,8 @@ class FrankaBimanualEnv(gym.Env):
                         int(h * self.crop_h[0]) : int(h * self.crop_h[1]),
                         int(w * self.crop_w[0]) : int(w * self.crop_w[1]),
                     ]
-                image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
+                image_dict[cam_id] = cv2.resize(image, (self.width, self.height))
+            self.curr_images = None
             self.curr_images = image_dict
 
             if self.use_gt_depth:
@@ -372,8 +374,8 @@ class FrankaBimanualEnv(gym.Env):
                 except KeyError:
                     pass
 
-            for key, image in self.curr_images.items():
-                obs[key] = image
+            for cam_idx, image in self.curr_images.items():
+                obs[f"pixels{cam_idx}"] = cv2.resize(image, (self.width, self.height))
             if self.use_gt_depth:
                 obs.update(depth_dict)
         else:  
