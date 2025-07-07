@@ -61,7 +61,7 @@ DEPTH_PORT_OFFSET = 1000
 # Franka Initial position and orientation
 FRANKA_INITIAL_POS = np.array([0.4579441, 0.0321529, 0.56579893])
 FRANKA_INITIAL_QUAT = np.array([0.99984777, 0.00877362, 0.01497245, 0.00180537])
-LEFT_FRANKA_INITIAL_POS = np.array([0.4579441, - 0.0321529, 0.56579893])
+LEFT_FRANKA_INITIAL_POS = np.array([0.4579441, -0.0321529, 0.56579893])
 LEFT_FRANKA_INITIAL_QUAT = np.array([0.99984777, 0.00877362, 0.01497245, 0.00180537])
 RIGHT_FRANKA_INITIAL_POS = np.array([0.45773622, 0.03207849,  0.56579893])
 RIGHT_FRANKA_INITIAL_QUAT = np.array([0.9998556 , 0.00884407, 0.01440562, 0.00178333])
@@ -72,7 +72,7 @@ left_camera_calibs = np.load(
     allow_pickle=True,
 )[()]
 right_camera_calibs = np.load(
-    "/home/david/egozero/calib/calib_right_0310.npy",
+    "/home/david/egozero/calib/calib_right_0321.npy",
     allow_pickle=True,
 )[()]
 

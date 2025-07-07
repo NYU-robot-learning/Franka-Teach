@@ -287,7 +287,25 @@ class FrankaBimanualEnv(gym.Env):
             obs.update(depth_dict)
         return obs, self.reward, False, None
 
-    def reset(self):
+    def smooth_motion(self, state, target_state, is_left=True):
+        action_socket = self.left_action_socket if is_left else self.right_action_socket
+        n = 5
+        prev_pos = state.pos
+        target_pos = target_state[:3]
+        target_ori = target_state[3:7]
+        target_gripper = target_state[-1]
+        
+        for i in range(1, n + 1):
+            pos = prev_pos + i / n * (target_pos - prev_pos)
+            action = np.concatenate([pos, target_ori, [target_gripper]])
+            self._send_action_to_arm(
+                action, action_socket, reset=False
+            )
+            franka_state: FrankaState = pickle.loads(action_socket.recv())
+            
+        return franka_state
+    
+    def reset(self,smooth=False):
         if self.use_robot:
             print("resetting bimanual environment")
 
@@ -306,11 +324,12 @@ class FrankaBimanualEnv(gym.Env):
 
             # Send reset commands to both arms in parallel
             self._send_action_to_arm(
-                left_franka_reset_action, self.left_action_socket, reset=False
+                left_franka_reset_action, self.left_action_socket, reset=True
             )
             self._send_action_to_arm(
-                right_franka_reset_action, self.right_action_socket, reset=False
+                right_franka_reset_action, self.right_action_socket, reset=True
             )
+
             left_franka_state: FrankaState = pickle.loads(self.left_action_socket.recv())
             right_franka_state: FrankaState = pickle.loads(self.right_action_socket.recv())
 
@@ -346,6 +365,14 @@ class FrankaBimanualEnv(gym.Env):
 
                     depth_dict[f"depth{cam_id}"] = cv2.resize(depth, (self.width, self.height))
             # Construct observation dictionary
+            
+            if smooth:
+                left_franka_state = self.smooth_motion(left_franka_state, left_franka_reset_action)
+                right_franka_state = self.smooth_motion(right_franka_state, right_franka_reset_action, False)
+
+            self.left_franka_state = left_franka_state
+            self.right_franka_state = right_franka_state
+
             obs = {
                 "features": np.concatenate(
                     (
