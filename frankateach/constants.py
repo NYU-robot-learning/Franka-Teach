@@ -30,7 +30,7 @@ STATE_TOPIC = "state"
 CONTROL_TOPIC = "control"
 
 # VR constants
-VR_TCP_HOST = "10.19.189.139"
+VR_TCP_HOST = "10.21.121.254"
 VR_TCP_PORT = 5555
 VR_CONTROLLER_TOPIC = b"oculus_controller"
 
@@ -68,7 +68,7 @@ RIGHT_FRANKA_INITIAL_QUAT = np.array([0.9998556 , 0.00884407, 0.01440562, 0.0017
 
 # Camera Constants Cage setting
 left_camera_calibs = np.load(
-    "/nas/projectaria/0331_calib_left_demo_7.npy",
+    "/home/david/egozero/calib/0331_calib_left_demo_7.npy",
     allow_pickle=True,
 )[()]
 right_camera_calibs = np.load(

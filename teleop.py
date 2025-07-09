@@ -13,6 +13,7 @@ def start_teleop(
         init_gripper_state=init_gripper_state,
         teleop_mode=teleop_mode,
         home_offset=home_offset,
+        deoxys_config_path = deoxys_config_path
     )
     operator.stream()
 
