@@ -6,7 +6,7 @@ from frankateach.constants import HOST, VR_CONTROLLER_STATE_PORT
 
 
 def start_teleop(
-    robot, init_gripper_state="open", teleop_mode="robot", home_offset=None
+    robot, init_gripper_state="open", teleop_mode="robot", home_offset=None, deoxys_config_path="deoxys_left.yml"
 ):
     operator = FrankaOperator(
         robot=robot,
