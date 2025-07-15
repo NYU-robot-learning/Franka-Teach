@@ -224,7 +224,7 @@ class FrankaEnv(gym.Env):
         obs.update(image_dict)
         if self.use_gt_depth:
             obs.update(depth_dict)
-        return obs, self.reward, False, False, {}
+        return obs, self.reward, False, None
 
     def reset(self):
         if self.use_robot:
