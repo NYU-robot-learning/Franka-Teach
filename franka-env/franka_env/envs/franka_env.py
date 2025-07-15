@@ -225,7 +225,32 @@ class FrankaEnv(gym.Env):
         if self.use_gt_depth:
             obs.update(depth_dict)
         return obs, self.reward, False, None
-
+    
+    def smooth_motion(self, state, target_state):
+       
+        n = 5
+        prev_pos = state.pos
+        target_pos = target_state[:3]
+        target_ori = target_state[3:7]
+        target_gripper = target_state[-1]
+        
+        for i in range(1, n + 1):
+            pos = prev_pos + i / n * (target_pos - prev_pos)
+            action = FrankaAction(
+                pos=pos,
+                quat=target_ori,
+                gripper=target_gripper,
+                reset=False,
+                timestamp=time.time(),
+            )
+            
+            self.action_request_socket.send(
+                bytes(pickle.dumps(action, protocol=-1))
+            )
+            franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+            
+        return franka_state
+    
     def reset(self):
         if self.use_robot:
             print("resetting")
@@ -243,6 +268,16 @@ class FrankaEnv(gym.Env):
             )
             franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
             self.franka_state = franka_state
+
+            franka_reset_action = np.concatenate([
+                FRANKA_INITIAL_POS, 
+                FRANKA_INITIAL_QUAT, 
+                np.array([GRIPPER_OPEN]),
+            ]) 
+            
+            franka_state = self.smooth_motion(franka_state, franka_reset_action)
+            self.franka_state = franka_state
+
             print("reset done: ", franka_state)
 
             image_dict = {}
