@@ -334,11 +334,11 @@ class FrankaEnv(gym.Env):
             ]
         return reskin_state
 
-    def render(self, mode="rgb_array", cam_id=None, width=640, height=480):
+    def render(self, mode="rgb_array", cam_idx=None, width=640, height=480):
         assert self.curr_images is not None, "Must call reset() before render()"
         if mode == "rgb_array":
-            if cam_id is not None:
-                return self.curr_images[f"pixels{cam_id}"]
+            if cam_idx is not None:
+                return self.curr_images[f"pixels{cam_idx}"]
             image_list = []
             for key, im in self.curr_images.items():
                 h, w = im.shape[:2]
