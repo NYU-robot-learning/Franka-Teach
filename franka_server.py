@@ -41,12 +41,14 @@ from frankateach.franka_server import FrankaServer
 
 @hydra.main(version_base="1.2", config_path="configs", config_name="franka_server")
 def main(cfg):
+    # import ipdb;ipdb.set_trace()
     # Override the deoxys_config_path based on the global hand info.
     if os.environ.get("HAND") == "left":
         cfg.deoxys_config_path = "deoxys_left.yml"
     else:
         cfg.deoxys_config_path = "deoxys_right.yml"
 
+    print(cfg.deoxys_config_path)
     fs = FrankaServer(cfg.deoxys_config_path)
     fs.init_server()
 

@@ -40,8 +40,6 @@ def get_relative_affine(init_affine, current_affine):
     )
 
     return relative_affine
-
-
 class FrankaOperator:
     def __init__(
         self,
@@ -70,9 +68,11 @@ class FrankaOperator:
 
         if teleop_mode == "human" and home_offset is None:
             home_offset = [-0.22, 0.0, 0.1]
+        # home_offset = [ -0.2, 0.00, 0.00 ]
         self.home_offset = (
             np.array(home_offset) if home_offset is not None else np.zeros(3)
         )
+        # print("home offset gotten!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
     def _apply_retargeted_angles(self) -> None:
         self.controller_state = self._controller_state_subscriber.recv_keypoints()
@@ -103,7 +103,10 @@ class FrankaOperator:
             robot_state = pickle.loads(self.action_socket.recv())
             # HOME <- Pos: [0.457632  0.0321814 0.2653815], Quat: [0.9998586  0.00880853 0.01421072 0.00179784]
 
-            print(robot_state)
+            self.action_socket.send(b"get_state")
+            robot_state = pickle.loads(self.action_socket.recv())
+
+            # print(robot_state, "ooooooooooooooooooooooooooo")
             self.home_rot, self.home_pos = (
                 transform_utils.quat2mat(robot_state.quat),
                 robot_state.pos,
@@ -145,6 +148,8 @@ class FrankaOperator:
 
         if gripper_action is not None and gripper_action != self.gripper_state:
             self.gripper_state = gripper_action
+
+        # print(gripper_action, self.gripper_state, "oooooooooooooooooooooooooooooooo")
 
         if self.start_teleop:
             relative_pos, relative_rot = (

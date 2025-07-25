@@ -27,7 +27,7 @@ except ImportError:
 class FrankaEnv(gym.Env):
     def __init__(
         self,
-        cam_ids=[1, 2, 3, 4, 5, 51],
+        cam_ids=[1, 2, 3, 4, 5, 6, 51],
         width=640,
         height=480,
         use_robot=True,

@@ -2,7 +2,7 @@ import numpy as np
 import os
 # Read the hand information from the environment variable.
 HAND = os.environ.get("HAND", "right")  # defaults to "right" if not set
-
+print("currently using hand:", HAND)
 # Decide the control port based on the hand.
 if HAND == "left":
     CONTROL_PORT = 8911
@@ -40,7 +40,7 @@ STATE_TOPIC = "state"
 CONTROL_TOPIC = "control"
 
 # VR constants
-VR_TCP_HOST = "10.19.189.139"
+VR_TCP_HOST = "10.21.121.254"
 VR_TCP_PORT = 5555
 VR_CONTROLLER_TOPIC = b"oculus_controller"
 
@@ -75,7 +75,7 @@ GRIPPER_CLOSE = 1
 #         [ 0,  0,  0,  1]
 #     ]) #working
 
-x_min, x_max = 0.2, 0.75
+x_min, x_max = 0.2, 0.9 #0.75
 y_min, y_max = -0.4, 0.4
 z_min, z_max = 0.05, 0.7  # 232, 550
 ROBOT_WORKSPACE_MIN = np.array([x_min, y_min, z_min])

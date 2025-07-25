@@ -1,3 +1,3 @@
-init_gripper_state: open # open, close
+init_gripper_state: open # open, close, none
 teleop_mode: robot # robot, human
 home_offset: null
