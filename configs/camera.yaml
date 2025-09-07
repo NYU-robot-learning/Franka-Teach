@@ -23,6 +23,14 @@ cam_info:
     cam_id: 6
     cam_serial_num: "242322078244"
     type: realsense
+  - 
+    cam_id: 7
+    cam_serial_num: "141722076049"
+    type: realsense
+  # -
+  #   cam_id: 8
+  #   cam_serial_num: "130322272344"
+  #   type: realsense
 
 cam_config:
   realsense:
@@ -30,7 +38,7 @@ cam_config:
     height: 480
     fps: 30
     processing_preset: 1
-    depth: True
+    depth: False
   fisheye:
     width: 640
     height: 480

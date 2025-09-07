@@ -1,7 +1,7 @@
 import numpy as np
 import os
 # Read the hand information from the environment variable.
-HAND = os.environ.get("HAND", "right")  # defaults to "right" if not set
+HAND = os.environ.get("HAND", "left")  # defaults to "right" if not set
 print("currently using hand:", HAND)
 # Decide the control port based on the hand.
 if HAND == "left":

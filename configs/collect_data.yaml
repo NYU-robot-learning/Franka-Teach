@@ -2,9 +2,11 @@ defaults:
   - _self_
   - camera
 
-storage_path: "/home/bobby/data/extracted_data/pick_bottle_from_fridge_left_robot"
+# storage_path: "/home/bobby/data/extracted_data/pick_bottle_from_fridge_and_place_the_bottle_right_robot"
+# storage_path: "/home/bobby/data/extracted_data/close_oven_left_robot"
+storage_path: "/home/bobby/data/extracted_data/put_bottle_into_left_basket_left_robot"
 demo_num: 0
 collect_img: True
-collect_depth: True
+collect_depth: False
 collect_state: True
 collect_reskin: False
