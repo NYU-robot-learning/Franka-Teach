@@ -1,11 +1,19 @@
 cam_info:
   -
-    cam_id: 1
-    cam_serial_num: "147322072736"
-    type: realsense
-  -
     cam_id: 2
     cam_serial_num: "028522071213"
+    type: realsense
+  -
+    cam_id: 4
+    cam_serial_num: "152222073516"
+    type: realsense
+  -
+    cam_id: 5
+    cam_serial_num: "141722076049"
+    type: realsense
+  -
+    cam_id: 6
+    cam_serial_num: "242322078244"
     type: realsense
 
 cam_config:

@@ -9,7 +9,9 @@ from frankateach.constants import (
     GRIPPER_CLOSE,
     GRIPPER_OPEN,
     HOST,
-    CONTROL_PORT,
+    # CONTROL_PORT,
+    CONTROL_PORT_LEFT,
+    CONTROL_PORT_RIGHT,
 )
 from frankateach.messages import FrankaAction, FrankaState
 from frankateach.network import (
@@ -33,6 +35,7 @@ class FrankaEnv(gym.Env):
         use_robot=True,
         sensor_type=None,
         sensor_params=None,
+        side="right",
     ):
         super(FrankaEnv, self).__init__()
         self.width = width
@@ -117,7 +120,7 @@ class FrankaEnv(gym.Env):
                 # Call once to populate initial baseline
                 self._get_reskin_state(update_baseline=True)
 
-            self.action_request_socket = create_request_socket(HOST, CONTROL_PORT)
+            self.action_request_socket = create_request_socket(HOST, CONTROL_PORT_RIGHT if side == "right" else CONTROL_PORT_LEFT)
 
     def get_state(self):
         self.action_request_socket.send(b"get_state")
@@ -173,9 +176,10 @@ class FrankaEnv(gym.Env):
         obs.update(image_dict)
         # for i, image in image_dict.items():
         #     obs[f"pixels{i}"] = cv2.resize(image, (self.width, self.height))
-        return obs, self.reward, False, False, {}
+        # return obs, self.reward, False, False, {}
+        return obs, self.reward, False, {}
 
-    def reset(self):
+    def reset(self, **kwargs):
         print("resetting")
         # TODO: send b"reset" to the robot instead of this action
         franka_reset_action = FrankaAction(
@@ -199,7 +203,7 @@ class FrankaEnv(gym.Env):
             image, _ = subscriber.recv_rgb_image()
             image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
             self.curr_images.append(image)
-
+        
         obs = {
             "features": np.concatenate(
                 (franka_state.pos, franka_state.quat, [franka_state.gripper])
