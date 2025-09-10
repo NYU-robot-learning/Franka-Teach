@@ -5,10 +5,13 @@ from frankateach.oculus_stick import OculusVRStickDetector
 from frankateach.constants import HOST, VR_CONTROLLER_STATE_PORT
 
 
-def start_teleop(init_gripper_state="open", teleop_mode="robot", home_offset=None):
+def start_teleop(
+    init_gripper_state="open", teleop_mode="robot", side="right", home_offset=None
+):
     operator = FrankaOperator(
         init_gripper_state=init_gripper_state,
         teleop_mode=teleop_mode,
+        side=side,
         home_offset=home_offset,
     )
     operator.stream()
@@ -26,6 +29,7 @@ def main(cfg):
         args=(
             cfg.init_gripper_state,
             cfg.teleop_mode,
+            cfg.side,
             cfg.home_offset,
         ),
     )

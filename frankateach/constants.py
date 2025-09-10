@@ -5,7 +5,9 @@ HOST = "localhost"
 CAM_PORT = 10005
 VR_CONTROLLER_STATE_PORT = 8889
 STATE_PORT = 8900
-CONTROL_PORT = 8911  # 8911 - right robot, 8901 - left robot
+# CONTROL_PORT = 8911  # 8911 - right robot, 8901 - left robot
+CONTROL_PORT_RIGHT = 8911
+CONTROL_PORT_LEFT = 8901
 COMMANDED_STATE_PORT = 8902
 RESKIN_STREAM_PORT = 12005
 
@@ -21,8 +23,10 @@ VR_CONTROLLER_TOPIC = b"oculus_controller"
 # Robot constants
 GRIPPER_OPEN = -1
 GRIPPER_CLOSE = 1
-H_R_V = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
-H_R_V_star = np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
+H_R_V_left = np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
+H_R_V_star_left = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
+H_R_V_right = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
+H_R_V_star_right = np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
 x_min, x_max = 0.2, 0.75
 y_min, y_max = -0.4, 0.4
 z_min, z_max = 0.05, 0.7  # 232, 550

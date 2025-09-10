@@ -8,12 +8,15 @@ from frankateach.network import (
 )
 from frankateach.constants import (
     COMMANDED_STATE_PORT,
-    CONTROL_PORT,
+    CONTROL_PORT_LEFT,
+    CONTROL_PORT_RIGHT,
     HOST,
     STATE_PORT,
     VR_CONTROLLER_STATE_PORT,
-    H_R_V,
-    H_R_V_star,
+    H_R_V_left,
+    H_R_V_star_left,
+    H_R_V_right,
+    H_R_V_star_right,
     ROBOT_WORKSPACE_MIN,
     ROBOT_WORKSPACE_MAX,
     GRIPPER_OPEN,
@@ -27,7 +30,7 @@ import numpy as np
 from numpy.linalg import pinv
 
 
-def get_relative_affine(init_affine, current_affine):
+def get_relative_affine(init_affine, current_affine, H_R_V, H_R_V_star):
     H_V_des = pinv(init_affine) @ current_affine
 
     # Transform to robot frame.
@@ -47,17 +50,9 @@ class FrankaOperator:
         self,
         init_gripper_state="open",
         teleop_mode="robot",
+        side="right",
         home_offset=[0, 0, 0],
     ) -> None:
-        # Subscribe controller state
-        self._controller_state_subscriber = ZMQKeypointSubscriber(
-            host=HOST, port=VR_CONTROLLER_STATE_PORT, topic="controller_state"
-        )
-
-        self.action_socket = create_request_socket(HOST, CONTROL_PORT)
-        self.state_socket = ZMQKeypointPublisher(HOST, STATE_PORT)
-        self.commanded_state_socket = ZMQKeypointPublisher(HOST, COMMANDED_STATE_PORT)
-
         # Class variables
         # self._save_states = save_states
         self.is_first_frame = True
@@ -67,12 +62,27 @@ class FrankaOperator:
         self.start_teleop = False
         self.init_affine = None
         self.teleop_mode = teleop_mode
+        self.side = side
+
+        # Subscribe controller state
+        self._controller_state_subscriber = ZMQKeypointSubscriber(
+            host=HOST, port=VR_CONTROLLER_STATE_PORT, topic="controller_state"
+        )
+
+        self.action_socket = create_request_socket(
+            HOST, CONTROL_PORT_LEFT if self.side == "left" else CONTROL_PORT_RIGHT
+        )
+        self.state_socket = ZMQKeypointPublisher(HOST, STATE_PORT)
+        self.commanded_state_socket = ZMQKeypointPublisher(HOST, COMMANDED_STATE_PORT)
 
         if teleop_mode == "human" and home_offset is None:
             home_offset = [-0.22, 0.0, 0.1]
         self.home_offset = (
             np.array(home_offset) if home_offset is not None else np.zeros(3)
         )
+
+        self.H_R_V = H_R_V_left if self.side == "left" else H_R_V_right
+        self.H_R_V_star = H_R_V_star_left if self.side == "left" else H_R_V_star_right
 
     def _apply_retargeted_angles(self) -> None:
         self.controller_state = self._controller_state_subscriber.recv_keypoints()
@@ -130,7 +140,10 @@ class FrankaOperator:
 
         if self.start_teleop and self.teleop_mode == "robot":
             relative_affine = get_relative_affine(
-                self.init_affine, self.controller_state.right_affine
+                self.init_affine,
+                self.controller_state.right_affine,
+                self.H_R_V,
+                self.H_R_V_star,
             )
         else:
             relative_affine = np.zeros((4, 4))

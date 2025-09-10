@@ -16,7 +16,7 @@ from frankateach.utils import notify_component_start
 from frankateach.network import create_response_socket
 from frankateach.messages import FrankaAction, FrankaState
 from frankateach.constants import (
-    CONTROL_PORT,
+    # CONTROL_PORT,
     HOST,
     CONTROL_FREQ,
 )
@@ -25,10 +25,12 @@ CONFIG_ROOT = Path(__file__).parent / "configs"
 
 
 class FrankaServer:
-    def __init__(self, cfg):
+    def __init__(self, cfg, control_port):
         self._robot = Robot(cfg, CONTROL_FREQ)
         # Action REQ/REP
-        self.action_socket = create_response_socket(HOST, CONTROL_PORT)
+        self.action_socket = create_response_socket(
+            HOST, control_port
+        )  # , CONTROL_PORT)
 
     def init_server(self):
         # connect to robot
