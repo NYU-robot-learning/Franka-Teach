@@ -104,6 +104,7 @@ class FrankaEnv(gym.Env):
 
         if self.use_robot:
             self.image_subscribers = {}
+            self.depth_subscribers = {}
             for cam_idx in cam_ids:
                 port = CAM_PORT + cam_idx
                 self.image_subscribers[cam_idx] = ZMQCameraSubscriber(
