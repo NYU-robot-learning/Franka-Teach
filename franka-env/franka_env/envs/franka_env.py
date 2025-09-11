@@ -12,6 +12,7 @@ from frankateach.constants import (
     # CONTROL_PORT,
     CONTROL_PORT_LEFT,
     CONTROL_PORT_RIGHT,
+    DEPTH_PORT_OFFSET,
 )
 from frankateach.messages import FrankaAction, FrankaState
 from frankateach.network import (
@@ -33,6 +34,7 @@ class FrankaEnv(gym.Env):
         width=640,
         height=480,
         use_robot=True,
+        use_gt_depth=False,
         sensor_type=None,
         sensor_params=None,
         side="right",
@@ -45,6 +47,7 @@ class FrankaEnv(gym.Env):
         self.action_dim = 7  # (pos, axis angle, gripper)
 
         self.use_robot = use_robot
+        self.use_gt_depth = use_gt_depth
         self.sensor_type = sensor_type
         if sensor_type is not None:
             assert sensor_type in ["reskin"]
@@ -108,6 +111,12 @@ class FrankaEnv(gym.Env):
                     port=port,
                     topic_type="RGB",
                 )
+                if self.use_gt_depth:
+                    self.depth_subscribers[cam_idx] = ZMQCameraSubscriber(
+                        host=HOST,
+                        port=port + DEPTH_PORT_OFFSET,
+                        topic_type="Depth",
+                    )
 
             if self.sensor_type == "reskin":
                 self.sensor_subscriber = ReskinSensorSubscriber()
@@ -155,8 +164,18 @@ class FrankaEnv(gym.Env):
         self.curr_images = []
         for cam_id, subscriber in self.image_subscribers.items():
             image, _ = subscriber.recv_rgb_image()
-            image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
+            if image.shape[:2] != (self.height, self.width):
+                image = cv2.resize(image, (self.width, self.height))
+            image_dict[f"pixels{cam_id}"] = image
             self.curr_images.append(image)
+
+        if self.use_gt_depth:
+            depth_dict = {}
+            for cam_id, subscriber in self.depth_subscribers.items():
+                depth, _ = subscriber.recv_depth_image()
+                if depth.shape[:2] != (self.height, self.width):
+                    depth = cv2.resize(depth, (self.width, self.height))
+                depth_dict[f"depth{cam_id}"] = depth
 
         obs = {
             "features": np.concatenate(
@@ -174,6 +193,8 @@ class FrankaEnv(gym.Env):
                 pass
 
         obs.update(image_dict)
+        if self.use_gt_depth:
+            obs.update(depth_dict)
         # for i, image in image_dict.items():
         #     obs[f"pixels{i}"] = cv2.resize(image, (self.width, self.height))
         # return obs, self.reward, False, False, {}
@@ -201,8 +222,19 @@ class FrankaEnv(gym.Env):
         self.curr_images = []
         for cam_id, subscriber in self.image_subscribers.items():
             image, _ = subscriber.recv_rgb_image()
-            image_dict[f"pixels{cam_id}"] = cv2.resize(image, (self.width, self.height))
+            if image.shape[:2] != (self.height, self.width):
+                image = cv2.resize(image, (self.width, self.height))
+            image_dict[f"pixels{cam_id}"] = image
             self.curr_images.append(image)
+        
+
+        if self.use_gt_depth:
+            depth_dict = {}
+            for cam_id, subscriber in self.depth_subscribers.items():
+                depth, _ = subscriber.recv_depth_image()
+                if depth.shape[:2] != (self.height, self.width):
+                    depth = cv2.resize(depth, (self.width, self.height))
+                depth_dict[f"depth{cam_id}"] = depth
         
         obs = {
             "features": np.concatenate(
@@ -220,6 +252,8 @@ class FrankaEnv(gym.Env):
                 pass
 
         obs.update(image_dict)
+        if self.use_gt_depth:
+            obs.update(depth_dict)
         # for i, image in enumerate(image_list):
         #     obs[f"pixels{i}"] = cv2.resize(image, (self.width, self.height))
         print("returning obs")
