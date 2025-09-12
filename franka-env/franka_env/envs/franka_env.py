@@ -38,6 +38,7 @@ class FrankaEnv(gym.Env):
         sensor_type=None,
         sensor_params=None,
         side="right",
+        zed_ids=None,
     ):
         super(FrankaEnv, self).__init__()
         self.width = width
@@ -58,6 +59,7 @@ class FrankaEnv(gym.Env):
                 self.n_sensors = 2
                 self.sensor_dim = 15
         self.sensor_params = sensor_params
+        self.zed_ids = zed_ids
 
         self.n_channels = 3
         self.reward = 0
@@ -130,7 +132,9 @@ class FrankaEnv(gym.Env):
                 # Call once to populate initial baseline
                 self._get_reskin_state(update_baseline=True)
 
-            self.action_request_socket = create_request_socket(HOST, CONTROL_PORT_RIGHT if side == "right" else CONTROL_PORT_LEFT)
+            self.action_request_socket = create_request_socket(
+                HOST, CONTROL_PORT_RIGHT if side == "right" else CONTROL_PORT_LEFT
+            )
 
     def get_state(self):
         self.action_request_socket.send(b"get_state")
@@ -165,14 +169,24 @@ class FrankaEnv(gym.Env):
         self.curr_images = []
         for cam_id, subscriber in self.image_subscribers.items():
             image, _ = subscriber.recv_rgb_image()
-            if image.shape[:2] != (self.height, self.width):
-                image = cv2.resize(image, (self.width, self.height))
-            image_dict[f"pixels{cam_id}"] = image
+            if self.zed_ids is not None and cam_id in self.zed_ids:
+                h, w = image.shape[:2]
+                left_image = image[:, : w // 2, :]
+                right_image = image[:, w // 2 :, :]
+                image_dict[f"pixels{cam_id}_left"] = left_image
+                image_dict[f"pixels{cam_id}_right"] = right_image
+            else:
+                if image.shape[:2] != (self.height, self.width):
+                    image = cv2.resize(image, (self.width, self.height))
+                image_dict[f"pixels{cam_id}"] = image
             self.curr_images.append(image)
 
         if self.use_gt_depth:
             depth_dict = {}
             for cam_id, subscriber in self.depth_subscribers.items():
+                if self.zed_ids is not None and cam_id in self.zed_ids:
+                    # depth is not supported for ZED cameras
+                    continue
                 depth, _ = subscriber.recv_depth_image()
                 if depth.shape[:2] != (self.height, self.width):
                     depth = cv2.resize(depth, (self.width, self.height))
@@ -223,20 +237,29 @@ class FrankaEnv(gym.Env):
         self.curr_images = []
         for cam_id, subscriber in self.image_subscribers.items():
             image, _ = subscriber.recv_rgb_image()
-            if image.shape[:2] != (self.height, self.width):
-                image = cv2.resize(image, (self.width, self.height))
-            image_dict[f"pixels{cam_id}"] = image
+            if self.zed_ids is not None and cam_id in self.zed_ids:
+                h, w = image.shape[:2]
+                left_image = image[:, : w // 2, :]
+                right_image = image[:, w // 2 :, :]
+                image_dict[f"pixels{cam_id}_left"] = left_image
+                image_dict[f"pixels{cam_id}_right"] = right_image
+            else:
+                if image.shape[:2] != (self.height, self.width):
+                    image = cv2.resize(image, (self.width, self.height))
+                image_dict[f"pixels{cam_id}"] = image
             self.curr_images.append(image)
-        
 
         if self.use_gt_depth:
             depth_dict = {}
             for cam_id, subscriber in self.depth_subscribers.items():
+                if self.zed_ids is not None and cam_id in self.zed_ids:
+                    # depth is not supported for ZED cameras
+                    continue
                 depth, _ = subscriber.recv_depth_image()
                 if depth.shape[:2] != (self.height, self.width):
                     depth = cv2.resize(depth, (self.width, self.height))
                 depth_dict[f"depth{cam_id}"] = depth
-        
+
         obs = {
             "features": np.concatenate(
                 (franka_state.pos, franka_state.quat, [franka_state.gripper])
