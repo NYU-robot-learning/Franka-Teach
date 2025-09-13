@@ -171,17 +171,17 @@ def list_available_cameras():
         print(f"\nTesting {backend_name} backend:")
 
         for index in range(10):
-            # try:
-            cap = cv2.VideoCapture(index, backend)
-            if cap.isOpened():
-                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                print(f"  Index {index}: Available ({width}x{height})")
-                cap.release()
-            else:
-                cap.release()
-            # except:
-            #     pass
+            try:
+                cap = cv2.VideoCapture(index, backend)
+                if cap.isOpened():
+                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    print(f"  Index {index}: Available ({width}x{height})")
+                    cap.release()
+                else:
+                    cap.release()
+            except:
+                pass
 
 
 if __name__ == "__main__":
