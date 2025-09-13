@@ -17,12 +17,13 @@ cam_info:
     type: realsense
   -
     cam_id: 7
-    cam_serial_num: "147322072546"
+    cam_serial_num: "021422062804"
     type: realsense
-  -
-    cam_id: 8
-    cam_serial_num: "30478809"
-    type: zed
+  # -
+  #   cam_id: 8
+  #   cam_serial_num: "30478809"
+  #   cam_id_sys: 18
+  #   type: zed
 
 cam_config:
   realsense:
@@ -30,7 +31,7 @@ cam_config:
     height: 480
     fps: 30
     processing_preset: 1
-    depth: True
+    depth: False #True
   fisheye:
     width: 640
     height: 480

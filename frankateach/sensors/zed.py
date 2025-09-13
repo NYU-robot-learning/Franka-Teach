@@ -114,6 +114,8 @@ class ZedCamera:
         self._cam_serial_num = cam_config.cam_serial_num
         self._depth = cam_config.depth
         assert self._depth is False, "Depth is not supported for ZED camera"
+        
+        self.cam_id_sys = cam_config.cam_id_sys if hasattr(cam_config, 'cam_id_sys') else None
 
         # Different publishers to avoid overload
         self.rgb_publisher = ZMQCameraPublisher(host, port)
@@ -123,11 +125,14 @@ class ZedCamera:
         # # Starting the realsense pipeline
         # self._start_zed(self._cam_serial_num)
 
-        index, backend = find_camera_by_serial(self._cam_serial_num)
-        if index is None:
-            raise ValueError(
-                f"Camera with serial number {self._cam_serial_num} not found"
-            )
+        if self.cam_id_sys is not None:
+            index, backend = self.cam_id_sys, cv2.CAP_V4L2
+        else:
+            index, backend = find_camera_by_serial(self._cam_serial_num)
+            if index is None:
+                raise ValueError(
+                    f"Camera with serial number {self._cam_serial_num} not found"
+                )
 
         self.cap = cv2.VideoCapture(index, backend)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.cam_config.width * 2)

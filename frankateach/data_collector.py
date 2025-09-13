@@ -11,7 +11,7 @@ from frankateach.network import (
     ZMQCameraSubscriber,
     ZMQKeypointSubscriber,
 )
-from frankateach.sensors.reskin import ReskinSensorSubscriber
+# from frankateach.sensors.reskin import ReskinSensorSubscriber
 from frankateach.utils import notify_component_start
 
 from frankateach.constants import (
