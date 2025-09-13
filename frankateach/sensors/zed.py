@@ -114,8 +114,10 @@ class ZedCamera:
         self._cam_serial_num = cam_config.cam_serial_num
         self._depth = cam_config.depth
         assert self._depth is False, "Depth is not supported for ZED camera"
-        
-        self.cam_id_sys = cam_config.cam_id_sys if hasattr(cam_config, 'cam_id_sys') else None
+
+        self.cam_id_sys = (
+            cam_config.cam_id_sys if hasattr(cam_config, "cam_id_sys") else None
+        )
 
         # Different publishers to avoid overload
         self.rgb_publisher = ZMQCameraPublisher(host, port)
@@ -170,6 +172,6 @@ class ZedCamera:
         except KeyboardInterrupt:
             pass
         finally:
-            print("Shutting down realsense pipeline for camera {}.".format(self.cam_id))
+            print("Shutting down zed pipeline for camera {}.".format(self.cam_id))
             self.rgb_publisher.stop()
             self.cap.release()

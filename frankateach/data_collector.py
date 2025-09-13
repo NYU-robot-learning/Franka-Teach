@@ -11,6 +11,7 @@ from frankateach.network import (
     ZMQCameraSubscriber,
     ZMQKeypointSubscriber,
 )
+
 # from frankateach.sensors.reskin import ReskinSensorSubscriber
 from frankateach.utils import notify_component_start
 
@@ -115,11 +116,15 @@ class DataCollector:
         filename = self.storage_path / f"cam_{cam_idx}_rgb_video.avi"
         metadata_filename = self.storage_path / f"cam_{cam_idx}_rgb_video.metadata"
 
+        width, height = cam_config["width"], cam_config["height"]
+        if cam_idx == 8:
+            width, height = width * 2, height
+
         recorder = cv2.VideoWriter(
             str(filename),
             cv2.VideoWriter_fourcc(*"XVID"),
             cam_config["fps"],
-            (cam_config["width"], cam_config["height"]),
+            (width, height),
         )
 
         timestamps = []

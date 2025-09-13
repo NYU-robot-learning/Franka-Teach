@@ -2,8 +2,8 @@ defaults:
   - _self_
   - camera
 
-# storage_path: "/home/siddhant/data_pb/extracted_data/0913_calibration"
-storage_path: "/home_shared/grail_siddhant/data_pb/extracted_data/0913_calibration"
+storage_path: "/home/siddhant/data_pb/extracted_data/0913_calibration"
+# storage_path: "/home_shared/grail_siddhant/data_pb/extracted_data/0913_calibration"
 demo_num: 0
 collect_img: True
 collect_depth: False
