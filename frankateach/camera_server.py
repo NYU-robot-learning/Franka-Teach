@@ -4,7 +4,7 @@ import threading
 
 from frankateach.sensors.realsense import RealsenseCamera
 from frankateach.sensors.fisheye_cam import FishEyeCamera
-from frankateach.sensors.zed import ZedCamera
+from frankateach.sensors.zed_trt import ZedCamera
 
 
 class CameraServer:

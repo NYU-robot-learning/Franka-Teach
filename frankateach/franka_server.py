@@ -101,7 +101,7 @@ class Robot(FrankaInterface):
         print("Franka is connected")
 
     def osc_move(self, target_pos, target_quat, gripper_state):
-        num_steps = 1 # 3
+        num_steps = 3 #1 #3
 
         for _ in range(num_steps):
             target_mat = transform_utils.pose2mat(pose=(target_pos, target_quat))
@@ -123,7 +123,7 @@ class Robot(FrankaInterface):
 
             action_pos = pose_error[:3]
             action_axis_angle = axis_angle_diff.flatten()
-
+            
             action = action_pos.tolist() + action_axis_angle.tolist() + [gripper_state]
 
             self.control(

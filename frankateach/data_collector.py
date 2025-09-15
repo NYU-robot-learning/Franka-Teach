@@ -153,7 +153,7 @@ class DataCollector:
                 pickle.dump(metadata, f)
             self.image_subscribers[cam_idx].stop()
             print(f"Saved video to {filename}")
-
+            
     # def save_depth(self, cam_idx, cam_config):
     #     raise NotImplementedError("Depth recording is not yet implemented")
 

@@ -146,10 +146,19 @@ class FrankaEnv(gym.Env):
         pos = abs_action[:3]
         quat = abs_action[3:7]
         gripper = abs_action[-1]
+        
         if gripper < 0.0:
             gripper = GRIPPER_OPEN
         else:
             gripper = GRIPPER_CLOSE
+        
+        # if gripper < -0.8 and self.prev_gripper == GRIPPER_CLOSE:
+        #     gripper = -1.0
+        # elif gripper > 0.5 and self.prev_gripper == GRIPPER_OPEN:
+        #     gripper = 1.0
+        # else:
+        #     gripper = self.prev_gripper
+        self.prev_gripper = gripper
 
         # Send action to the robot
         franka_action = FrankaAction(
@@ -225,6 +234,7 @@ class FrankaEnv(gym.Env):
             reset=True,
             timestamp=time.time(),
         )
+        self.prev_gripper = GRIPPER_OPEN
 
         self.action_request_socket.send(
             bytes(pickle.dumps(franka_reset_action, protocol=-1))

@@ -21,14 +21,15 @@ class ZedCamera:
         self.cam_config = cam_config
         self._cam_serial_num = cam_config.cam_serial_num
         self._depth = cam_config.depth
+        assert self._depth is False, "Depth is not supported for ZED camera"
 
         # Different publishers to avoid overload
         self.rgb_publisher = ZMQCameraPublisher(host, port)
 
-        if self._depth:
-            self.depth_publisher = ZMQCameraPublisher(
-                host, port=port + DEPTH_PORT_OFFSET
-            )
+        # if self._depth:
+        #     self.depth_publisher = ZMQCameraPublisher(
+        #         host, port=port + DEPTH_PORT_OFFSET
+        #     )
 
         self.timer = FrequencyTimer(CAM_FPS)
 
@@ -71,17 +72,17 @@ class ZedCamera:
             if obs is None:
                 continue
             left, right = obs["color_left"], obs["color_right"]
-            color_image = np.concatenate([left, right], axis=-1)
+            frames = np.concatenate([left, right], axis=1)
 
-            if self._depth:
-                left, right = obs["depth_left"], obs["depth_right"]
-                depth_image = np.concatenate([left, right], axis=-1)
-            else:
-                depth_image = None
-
+            # if self._depth:
+            #     left, right = obs["depth_left"], obs["depth_right"]
+            #     depth_image = np.concatenate([left, right], axis=-1)
+            # else:
+            depth_image = None
+            
         timestamp = time.time()
 
-        return color_image, depth_image, timestamp
+        return frames, depth_image, timestamp
 
     def stream(self):
         # Starting the realsense stream
@@ -92,17 +93,16 @@ class ZedCamera:
             while True:
                 self.timer.start_loop()
                 color_image, depth_image, timestamp = self.get_rgb_depth_images()
-
+                
                 self.rgb_publisher.pub_rgb_image(color_image, timestamp)
-                if self._depth:
-                    self.depth_publisher.pub_depth_image(depth_image, timestamp)
+                # if self._depth:
+                #     self.depth_publisher.pub_depth_image(depth_image, timestamp)
 
                 self.timer.end_loop()
         except KeyboardInterrupt:
             pass
         finally:
-            print("Shutting down realsense pipeline for camera {}.".format(self.cam_id))
             self.rgb_publisher.stop()
-            if self._depth:
-                self.depth_publisher.stop()
+            # if self._depth:
+            #     self.depth_publisher.stop()
             self.camera.close()
