@@ -31,6 +31,7 @@ class FrankaEnv(gym.Env):
     def __init__(
         self,
         cam_ids=[1, 2, 3, 4, 51],
+        zed_ids=None,
         width=640,
         height=480,
         use_robot=True,
@@ -38,7 +39,6 @@ class FrankaEnv(gym.Env):
         sensor_type=None,
         sensor_params=None,
         side="right",
-        zed_ids=None,
     ):
         super(FrankaEnv, self).__init__()
         self.width = width
