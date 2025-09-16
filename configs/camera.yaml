@@ -1,20 +1,29 @@
 cam_info:
+  # -
+  #   cam_id: 2
+  #   cam_serial_num: "028522071213"
+  #   type: realsense
+  # -
+  #   cam_id: 4
+  #   cam_serial_num: "152222073516"
+  #   type: realsense
+  # -
+  #   cam_id: 5
+  #   cam_serial_num: "141722076049"
+  #   type: realsense
+  # -
+  #   cam_id: 6
+  #   cam_serial_num: "242322078244"
+  #   type: realsense
   -
-    cam_id: 2
-    cam_serial_num: "028522071213"
+    cam_id: 7
+    cam_serial_num: "021422062804"
     type: realsense
   -
-    cam_id: 4
-    cam_serial_num: "152222073516"
-    type: realsense
-  -
-    cam_id: 5
-    cam_serial_num: "141722076049"
-    type: realsense
-  -
-    cam_id: 6
-    cam_serial_num: "242322078244"
-    type: realsense
+    cam_id: 8
+    cam_serial_num: "30478809"
+    # cam_id_sys: 18
+    type: zed
 
 cam_config:
   realsense:
@@ -27,3 +36,8 @@ cam_config:
     width: 640
     height: 480
     fps: 30
+  zed:
+    width: 1280
+    height: 720
+    fps: 30
+    depth: False

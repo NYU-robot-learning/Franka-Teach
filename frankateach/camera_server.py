@@ -4,6 +4,7 @@ import threading
 
 from frankateach.sensors.realsense import RealsenseCamera
 from frankateach.sensors.fisheye_cam import FishEyeCamera
+from frankateach.sensors.zed_trt import ZedCamera
 
 
 class CameraServer:
@@ -34,6 +35,13 @@ class CameraServer:
             )
         elif cam_type == "fisheye":
             component = FishEyeCamera(
+                host=self._host,
+                port=self._cam_port + cam_idx,
+                cam_id=cam_idx,
+                cam_config=cam_config,
+            )
+        elif cam_type == "zed":
+            component = ZedCamera(
                 host=self._host,
                 port=self._cam_port + cam_idx,
                 cam_id=cam_idx,

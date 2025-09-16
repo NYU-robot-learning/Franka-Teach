@@ -2,7 +2,8 @@ defaults:
   - _self_
   - camera
 
-storage_path: "/home/siddhant/data_pb/extracted_data/0907_dummy_task"
+# storage_path: "/home/siddhant/data_pb/extracted_data/0914_calibration"
+storage_path: "/home_shared/grail_siddhant/data_pb/extracted_data/0914_mug_on_plate_human"
 demo_num: 0
 collect_img: True
 collect_depth: False

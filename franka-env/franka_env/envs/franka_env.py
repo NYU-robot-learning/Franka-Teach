@@ -31,6 +31,7 @@ class FrankaEnv(gym.Env):
     def __init__(
         self,
         cam_ids=[1, 2, 3, 4, 51],
+        zed_ids=None,
         width=640,
         height=480,
         use_robot=True,
@@ -58,6 +59,7 @@ class FrankaEnv(gym.Env):
                 self.n_sensors = 2
                 self.sensor_dim = 15
         self.sensor_params = sensor_params
+        self.zed_ids = zed_ids
 
         self.n_channels = 3
         self.reward = 0
@@ -129,7 +131,9 @@ class FrankaEnv(gym.Env):
             # Call once to populate initial baseline
             self._get_reskin_state(update_baseline=True)
 
-        self.action_request_socket = create_request_socket(HOST, CONTROL_PORT_RIGHT if side == "right" else CONTROL_PORT_LEFT)
+        self.action_request_socket = create_request_socket(
+            HOST, CONTROL_PORT_RIGHT if side == "right" else CONTROL_PORT_LEFT
+        )
 
     def get_state(self):
         if self.use_robot:
@@ -149,10 +153,19 @@ class FrankaEnv(gym.Env):
         pos = abs_action[:3]
         quat = abs_action[3:7]
         gripper = abs_action[-1]
+        
         if gripper < 0.0:
             gripper = GRIPPER_OPEN
         else:
             gripper = GRIPPER_CLOSE
+        
+        # if gripper < -0.8 and self.prev_gripper == GRIPPER_CLOSE:
+        #     gripper = -1.0
+        # elif gripper > 0.5 and self.prev_gripper == GRIPPER_OPEN:
+        #     gripper = 1.0
+        # else:
+        #     gripper = self.prev_gripper
+        self.prev_gripper = gripper
 
         # Send action to the robot
         franka_action = FrankaAction(
@@ -184,15 +197,25 @@ class FrankaEnv(gym.Env):
             if self.use_robot:
                 image, _ = subscriber.recv_rgb_image()
             else:
-                image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-            if image.shape[:2] != (self.height, self.width):
-                image = cv2.resize(image, (self.width, self.height))
-            image_dict[f"pixels{cam_id}"] = image
+                image = np.zeros((self.height, self.width, 3), dtype=np.uint8) if cam_id not in self.zed_ids else np.zeros((self.height, self.width*2, 3), dtype=np.uint8)
+            if self.zed_ids is not None and cam_id in self.zed_ids:
+                h, w = image.shape[:2]
+                left_image = image[:, : w // 2, :]
+                right_image = image[:, w // 2 :, :]
+                image_dict[f"pixels{cam_id}_left"] = left_image
+                image_dict[f"pixels{cam_id}_right"] = right_image
+            else:
+                if image.shape[:2] != (self.height, self.width):
+                    image = cv2.resize(image, (self.width, self.height))
+                image_dict[f"pixels{cam_id}"] = image
             self.curr_images.append(image)
 
         if self.use_gt_depth:
             depth_dict = {}
             for cam_id, subscriber in self.depth_subscribers.items():
+                if self.zed_ids is not None and cam_id in self.zed_ids:
+                    # depth is not supported for ZED cameras
+                    continue
                 if self.use_robot:
                     depth, _ = subscriber.recv_depth_image()
                 else:
@@ -234,6 +257,7 @@ class FrankaEnv(gym.Env):
             reset=True,
             timestamp=time.time(),
         )
+        self.prev_gripper = GRIPPER_OPEN
 
         if self.use_robot:
             self.action_request_socket.send(
@@ -256,16 +280,25 @@ class FrankaEnv(gym.Env):
             if self.use_robot:
                 image, _ = subscriber.recv_rgb_image()
             else:
-                image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-            if image.shape[:2] != (self.height, self.width):
-                image = cv2.resize(image, (self.width, self.height))
-            image_dict[f"pixels{cam_id}"] = image
+                image = np.zeros((self.height, self.width, 3), dtype=np.uint8) if cam_id not in self.zed_ids else np.zeros((self.height, self.width*2, 3), dtype=np.uint8)
+            if self.zed_ids is not None and cam_id in self.zed_ids:
+                h, w = image.shape[:2]
+                left_image = image[:, : w // 2, :]
+                right_image = image[:, w // 2 :, :]
+                image_dict[f"pixels{cam_id}_left"] = left_image
+                image_dict[f"pixels{cam_id}_right"] = right_image
+            else:
+                if image.shape[:2] != (self.height, self.width):
+                    image = cv2.resize(image, (self.width, self.height))
+                image_dict[f"pixels{cam_id}"] = image
             self.curr_images.append(image)
-        
 
         if self.use_gt_depth:
             depth_dict = {}
             for cam_id, subscriber in self.depth_subscribers.items():
+                if self.zed_ids is not None and cam_id in self.zed_ids:
+                    # depth is not supported for ZED cameras
+                    continue
                 if self.use_robot:
                     depth, _ = subscriber.recv_depth_image()
                 else:
@@ -273,7 +306,7 @@ class FrankaEnv(gym.Env):
                 if depth.shape[:2] != (self.height, self.width):
                     depth = cv2.resize(depth, (self.width, self.height))
                 depth_dict[f"depth{cam_id}"] = depth
-        
+
         obs = {
             "features": np.concatenate(
                 (franka_state.pos, franka_state.quat, [franka_state.gripper])
