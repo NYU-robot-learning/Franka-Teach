@@ -102,38 +102,46 @@ class FrankaEnv(gym.Env):
                 )
         self.observation_space = gym.spaces.Dict(obs_space)
 
-        if self.use_robot:
-            self.image_subscribers = {}
-            for cam_idx in cam_ids:
-                port = CAM_PORT + cam_idx
-                self.image_subscribers[cam_idx] = ZMQCameraSubscriber(
+        # if self.use_robot:
+        self.image_subscribers = {}
+        for cam_idx in cam_ids:
+            port = CAM_PORT + cam_idx
+            self.image_subscribers[cam_idx] = ZMQCameraSubscriber(
+                host=HOST,
+                port=port,
+                topic_type="RGB",
+            )
+            if self.use_gt_depth:
+                self.depth_subscribers[cam_idx] = ZMQCameraSubscriber(
                     host=HOST,
-                    port=port,
-                    topic_type="RGB",
+                    port=port + DEPTH_PORT_OFFSET,
+                    topic_type="Depth",
                 )
-                if self.use_gt_depth:
-                    self.depth_subscribers[cam_idx] = ZMQCameraSubscriber(
-                        host=HOST,
-                        port=port + DEPTH_PORT_OFFSET,
-                        topic_type="Depth",
-                    )
 
-            if self.sensor_type == "reskin":
-                self.sensor_subscriber = ReskinSensorSubscriber()
+        if self.sensor_type == "reskin":
+            self.sensor_subscriber = ReskinSensorSubscriber()
 
-                self.sensor_prev_state = None
-                self.subtract_sensor_baseline = sensor_params[
-                    "subtract_sensor_baseline"
-                ]
+            self.sensor_prev_state = None
+            self.subtract_sensor_baseline = sensor_params[
+                "subtract_sensor_baseline"
+            ]
 
-                # Call once to populate initial baseline
-                self._get_reskin_state(update_baseline=True)
+            # Call once to populate initial baseline
+            self._get_reskin_state(update_baseline=True)
 
-            self.action_request_socket = create_request_socket(HOST, CONTROL_PORT_RIGHT if side == "right" else CONTROL_PORT_LEFT)
+        self.action_request_socket = create_request_socket(HOST, CONTROL_PORT_RIGHT if side == "right" else CONTROL_PORT_LEFT)
 
     def get_state(self):
-        self.action_request_socket.send(b"get_state")
-        franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+        if self.use_robot:
+            self.action_request_socket.send(b"get_state")
+            franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+        else:
+            franka_state = FrankaState(
+                pos=np.zeros(3),
+                quat=np.zeros(4),
+                gripper=GRIPPER_OPEN,
+                timestamp=time.time(),
+            )
         self.franka_state = franka_state
         return franka_state
 
@@ -156,14 +164,27 @@ class FrankaEnv(gym.Env):
         )
         # print("sending action to robot: ", franka_action)
 
-        self.action_request_socket.send(bytes(pickle.dumps(franka_action, protocol=-1)))
-        franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+        # self.action_request_socket.send(bytes(pickle.dumps(franka_action, protocol=-1)))
+        # franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+        if self.use_robot:
+            self.action_request_socket.send(bytes(pickle.dumps(franka_action, protocol=-1)))
+            franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+        else:
+            franka_state = FrankaState(
+                pos=np.zeros(3),
+                quat=np.zeros(4),
+                gripper=GRIPPER_OPEN,
+                timestamp=time.time(),
+            )
         self.franka_state = franka_state
 
         image_dict = {}
         self.curr_images = []
         for cam_id, subscriber in self.image_subscribers.items():
-            image, _ = subscriber.recv_rgb_image()
+            if self.use_robot:
+                image, _ = subscriber.recv_rgb_image()
+            else:
+                image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
             if image.shape[:2] != (self.height, self.width):
                 image = cv2.resize(image, (self.width, self.height))
             image_dict[f"pixels{cam_id}"] = image
@@ -172,7 +193,10 @@ class FrankaEnv(gym.Env):
         if self.use_gt_depth:
             depth_dict = {}
             for cam_id, subscriber in self.depth_subscribers.items():
-                depth, _ = subscriber.recv_depth_image()
+                if self.use_robot:
+                    depth, _ = subscriber.recv_depth_image()
+                else:
+                    depth = np.zeros((self.height, self.width), dtype=np.float32)
                 if depth.shape[:2] != (self.height, self.width):
                     depth = cv2.resize(depth, (self.width, self.height))
                 depth_dict[f"depth{cam_id}"] = depth
@@ -197,8 +221,8 @@ class FrankaEnv(gym.Env):
             obs.update(depth_dict)
         # for i, image in image_dict.items():
         #     obs[f"pixels{i}"] = cv2.resize(image, (self.width, self.height))
-        # return obs, self.reward, False, False, {}
-        return obs, self.reward, False, {}
+        return obs, self.reward, False, False, {}
+        # return obs, self.reward, False, {}
 
     def reset(self, **kwargs):
         print("resetting")
@@ -211,17 +235,28 @@ class FrankaEnv(gym.Env):
             timestamp=time.time(),
         )
 
-        self.action_request_socket.send(
-            bytes(pickle.dumps(franka_reset_action, protocol=-1))
-        )
-        franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+        if self.use_robot:
+            self.action_request_socket.send(
+                bytes(pickle.dumps(franka_reset_action, protocol=-1))
+            )
+            franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
+        else:
+            franka_state = FrankaState(
+                pos=np.zeros(3),
+                quat=np.zeros(4),
+                gripper=GRIPPER_OPEN,
+                timestamp=time.time(),
+            )
         self.franka_state = franka_state
         print("reset done: ", franka_state)
 
         image_dict = {}
         self.curr_images = []
         for cam_id, subscriber in self.image_subscribers.items():
-            image, _ = subscriber.recv_rgb_image()
+            if self.use_robot:
+                image, _ = subscriber.recv_rgb_image()
+            else:
+                image = np.zeros((self.height, self.width, 3), dtype=np.uint8)
             if image.shape[:2] != (self.height, self.width):
                 image = cv2.resize(image, (self.width, self.height))
             image_dict[f"pixels{cam_id}"] = image
@@ -231,7 +266,10 @@ class FrankaEnv(gym.Env):
         if self.use_gt_depth:
             depth_dict = {}
             for cam_id, subscriber in self.depth_subscribers.items():
-                depth, _ = subscriber.recv_depth_image()
+                if self.use_robot:
+                    depth, _ = subscriber.recv_depth_image()
+                else:
+                    depth = np.zeros((self.height, self.width), dtype=np.float32)
                 if depth.shape[:2] != (self.height, self.width):
                     depth = cv2.resize(depth, (self.width, self.height))
                 depth_dict[f"depth{cam_id}"] = depth
@@ -265,7 +303,12 @@ class FrankaEnv(gym.Env):
         if update_baseline:
             baseline_meas = []
             while len(baseline_meas) < 5:
-                sensor_state = self.sensor_subscriber.get_sensor_state()
+                if self.use_robot:
+                    sensor_state = self.sensor_subscriber.get_sensor_state()
+                else:
+                    sensor_state = {
+                        "sensor_values": np.zeros(self.n_sensors * self.sensor_dim)
+                    }
                 sensor_values = np.array(
                     sensor_state["sensor_values"], dtype=np.float32
                 )

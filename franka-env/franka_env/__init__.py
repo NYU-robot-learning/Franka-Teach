@@ -11,3 +11,4 @@ register(
     entry_point="franka_env.envs:FrankaEnvRelative",
     max_episode_steps=400,
 )
+
