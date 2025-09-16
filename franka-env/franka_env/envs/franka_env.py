@@ -70,12 +70,21 @@ class FrankaEnv(gym.Env):
         self.action_space = gym.spaces.Box(
             low=-float("inf"), high=float("inf"), shape=(self.action_dim,)
         )
-        obs_space = {
-            f"pixels{cam_id}": gym.spaces.Box(
-                low=0, high=255, shape=(height, width, self.n_channels), dtype=np.uint8
-            )
-            for cam_id in cam_ids
-        }
+        
+        obs_space = {}
+        for cam_id in cam_ids:
+            if zed_ids is not None and cam_id in zed_ids:
+                obs_space[f"pixels{cam_id}_left"] = gym.spaces.Box(
+                    low=0, high=255, shape=(height, width, self.n_channels), dtype=np.uint8
+                )
+                obs_space[f"pixels{cam_id}_right"] = gym.spaces.Box(
+                    low=0, high=255, shape=(height, width, self.n_channels), dtype=np.uint8
+                )
+            else:
+                obs_space[f"pixels{cam_id}"] = gym.spaces.Box(
+                    low=0, high=255, shape=(height, width, self.n_channels), dtype=np.uint8
+                )
+        
         obs_space["features"] = gym.spaces.Box(
             low=-float("inf"),
             high=float("inf"),
