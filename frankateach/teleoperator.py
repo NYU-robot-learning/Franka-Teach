@@ -188,7 +188,7 @@ class FrankaOperator:
 
         else:
             target_pos, target_quat = (
-                self.home_pos + self.home_offset,
+                self.home_pos, # + self.home_offset,
                 transform_utils.mat2quat(self.home_rot),
             )
 
