@@ -84,6 +84,10 @@ class FrankaEnv(gym.Env):
                 obs_space[f"pixels{cam_id}"] = gym.spaces.Box(
                     low=0, high=255, shape=(height, width, self.n_channels), dtype=np.uint8
                 )
+                if self.use_gt_depth:
+                    obs_space[f"depth{cam_id}"] = gym.spaces.Box(
+                        low=0, high=255, shape=(height, width), dtype=np.uint8
+                    )
         
         obs_space["features"] = gym.spaces.Box(
             low=-float("inf"),
@@ -91,12 +95,12 @@ class FrankaEnv(gym.Env):
             shape=(self.feature_dim,),
             dtype=np.float32,
         )
-        obs_space["proprioceptive"] = gym.spaces.Box(
-            low=-float("inf"),
-            high=float("inf"),
-            shape=(self.feature_dim,),
-            dtype=np.float32,
-        )
+        # obs_space["proprioceptive"] = gym.spaces.Box(
+        #     low=-float("inf"),
+        #     high=float("inf"),
+        #     shape=(self.feature_dim,),
+        #     dtype=np.float32,
+        # )
         if self.sensor_type == "reskin":
             for sensor_idx in range(self.n_sensors):
                 obs_space[f"sensor{sensor_idx}"] = gym.spaces.Box(
@@ -115,6 +119,7 @@ class FrankaEnv(gym.Env):
 
         # if self.use_robot:
         self.image_subscribers = {}
+        self.depth_subscribers = {}
         for cam_idx in cam_ids:
             port = CAM_PORT + cam_idx
             self.image_subscribers[cam_idx] = ZMQCameraSubscriber(
@@ -237,9 +242,9 @@ class FrankaEnv(gym.Env):
             "features": np.concatenate(
                 (franka_state.pos, franka_state.quat, [franka_state.gripper])
             ),
-            "proprioceptive": np.concatenate(
-                (franka_state.pos, franka_state.quat, [franka_state.gripper])
-            ),
+            # "proprioceptive": np.concatenate(
+            #     (franka_state.pos, franka_state.quat, [franka_state.gripper])
+            # ),
         }
         if self.sensor_type == "reskin":
             try:
@@ -320,9 +325,9 @@ class FrankaEnv(gym.Env):
             "features": np.concatenate(
                 (franka_state.pos, franka_state.quat, [franka_state.gripper])
             ),
-            "proprioceptive": np.concatenate(
-                (franka_state.pos, franka_state.quat, [franka_state.gripper])
-            ),
+            # "proprioceptive": np.concatenate(
+            #     (franka_state.pos, franka_state.quat, [franka_state.gripper])
+            # ),
         }
         if self.sensor_type == "reskin":
             try:

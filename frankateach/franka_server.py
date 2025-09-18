@@ -64,6 +64,8 @@ class FrankaServer:
                     if franka_control.reset:
                         self._robot.reset_joints(gripper_open=franka_control.gripper)
                         time.sleep(1)
+                    elif franka_control.move_robot_out_of_view:
+                        self._robot.move_robot_out_of_view(gripper_open=franka_control.gripper)
                     else:
                         self._robot.osc_move(
                             franka_control.pos,
@@ -145,6 +147,58 @@ class Robot(FrankaInterface):
             -0.01307073642274261,
             2.30396583422025,
             0.8480939705504309,
+        ]
+        assert type(start_joint_pos) is list or type(start_joint_pos) is np.ndarray
+        controller_cfg = get_default_controller_config(controller_type="JOINT_POSITION")
+
+        if gripper_open:
+            gripper_action = -1
+        else:
+            gripper_action = 1
+
+        # This is for varying initialization of joints a little bit to
+        # increase data variation.
+        # start_joint_pos = [
+        #     e + np.clip(np.random.randn() * 0.005, -0.005, 0.005)
+        #     for e in start_joint_pos
+        # ]
+        if type(start_joint_pos) is list:
+            action = start_joint_pos + [gripper_action]
+        else:
+            action = start_joint_pos.tolist() + [gripper_action]
+        start_time = time.time()
+        while True:
+            if self.received_states and self.check_nonzero_configuration():
+                if (
+                    np.max(np.abs(np.array(self.last_q) - np.array(start_joint_pos)))
+                    < 1e-3
+                ):
+                    break
+            self.control(
+                controller_type="JOINT_POSITION",
+                action=action,
+                controller_cfg=controller_cfg,
+            )
+            end_time = time.time()
+
+            # Add timeout
+            if end_time - start_time > timeout:
+                break
+        return True
+    
+    def move_robot_out_of_view(
+        self,
+        timeout=7,
+        gripper_open=False,
+    ):
+        start_joint_pos = [
+            0.09669,
+            -0.50666,
+            -0.01178,
+            -1.94212,
+            -0.05072,
+            1.99761,
+            0.9177,
         ]
         assert type(start_joint_pos) is list or type(start_joint_pos) is np.ndarray
         controller_cfg = get_default_controller_config(controller_type="JOINT_POSITION")

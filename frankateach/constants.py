@@ -16,7 +16,7 @@ STATE_TOPIC = "state"
 CONTROL_TOPIC = "control"
 
 # VR constants
-VR_TCP_HOST = "10.21.121.254"
+VR_TCP_HOST = "10.21.47.240"
 VR_TCP_PORT = 5555
 VR_CONTROLLER_TOPIC = b"oculus_controller"
 
@@ -27,9 +27,9 @@ H_R_V_left = np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
 H_R_V_star_left = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
 H_R_V_right = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
 H_R_V_star_right = np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
-x_min, x_max = 0.2, 0.75
-y_min, y_max = -0.4, 0.4
-z_min, z_max = 0.05, 0.7  # 232, 550
+x_min, x_max = 0.1, 0.75
+y_min, y_max = -0.5, 0.5
+z_min, z_max = 0.0, 0.7  # 232, 550
 ROBOT_WORKSPACE_MIN = np.array([x_min, y_min, z_min])
 ROBOT_WORKSPACE_MAX = np.array([x_max, y_max, z_max])
 

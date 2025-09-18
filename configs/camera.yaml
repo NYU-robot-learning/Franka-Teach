@@ -24,6 +24,10 @@ cam_info:
     cam_serial_num: "30478809"
     # cam_id_sys: 18
     type: zed
+  - 
+    cam_id: 9
+    cam_serial_num: "141722076049"
+    type: realsense
 
 cam_config:
   realsense:

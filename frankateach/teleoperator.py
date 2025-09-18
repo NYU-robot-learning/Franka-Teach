@@ -75,11 +75,11 @@ class FrankaOperator:
         self.state_socket = ZMQKeypointPublisher(HOST, STATE_PORT)
         self.commanded_state_socket = ZMQKeypointPublisher(HOST, COMMANDED_STATE_PORT)
 
-        if teleop_mode == "human" and home_offset is None:
-            home_offset = [-0.22, 0.0, 0.1]
-        self.home_offset = (
-            np.array(home_offset) if home_offset is not None else np.zeros(3)
-        )
+        # if self.teleop_mode == "human" and home_offset is None:
+        #     home_offset = [-0.22, 0.0, 0.1]
+        # self.home_offset = (
+        #     np.array(home_offset) if home_offset is not None else np.zeros(3)
+        # )
 
         self.H_R_V = H_R_V_left if self.side == "left" else H_R_V_right
         self.H_R_V_star = H_R_V_star_left if self.side == "left" else H_R_V_star_right
@@ -89,28 +89,39 @@ class FrankaOperator:
 
         if self.is_first_frame:
             print("Resetting robot..")
-            action = FrankaAction(
-                pos=np.zeros(3),
-                quat=np.zeros(4),
-                gripper=self.gripper_state,
-                reset=True,
-                timestamp=time.time(),
-            )
+            if not self.teleop_mode == "human":
+                action = FrankaAction(
+                    pos=np.zeros(3),
+                    quat=np.zeros(4),
+                    gripper=self.gripper_state,
+                    reset=True,
+                    timestamp=time.time(),
+                    move_robot_out_of_view=False,
+                )
+            else:
+                action = FrankaAction(
+                    pos=np.zeros(3),
+                    quat=np.zeros(4),
+                    gripper=self.gripper_state,
+                    reset=False,
+                    timestamp=time.time(),
+                    move_robot_out_of_view=True,
+                )
             self.action_socket.send(bytes(pickle.dumps(action, protocol=-1)))
             robot_state = pickle.loads(self.action_socket.recv())
 
-            # Move to offset position
-            target_pos = robot_state.pos + self.home_offset
-            target_quat = robot_state.quat
-            action = FrankaAction(
-                pos=target_pos.flatten().astype(np.float32),
-                quat=target_quat.flatten().astype(np.float32),
-                gripper=self.gripper_state,
-                reset=False,
-                timestamp=time.time(),
-            )
-            self.action_socket.send(bytes(pickle.dumps(action, protocol=-1)))
-            robot_state = pickle.loads(self.action_socket.recv())
+            # # Move to offset position
+            # target_pos = robot_state.pos + self.home_offset
+            # target_quat = robot_state.quat
+            # action = FrankaAction(
+            #     pos=target_pos.flatten().astype(np.float32),
+            #     quat=target_quat.flatten().astype(np.float32),
+            #     gripper=self.gripper_state,
+            #     reset=False,
+            #     timestamp=time.time(),
+            # )
+            # self.action_socket.send(bytes(pickle.dumps(action, protocol=-1)))
+            # robot_state = pickle.loads(self.action_socket.recv())
             # HOME <- Pos: [0.457632  0.0321814 0.2653815], Quat: [0.9998586  0.00880853 0.01421072 0.00179784]
 
             print(robot_state)

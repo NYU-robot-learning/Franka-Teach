@@ -20,6 +20,7 @@ class FrankaAction:
     gripper: np.ndarray
     reset: bool
     timestamp: float
+    move_robot_out_of_view: bool = False
 
 
 @dataclass
