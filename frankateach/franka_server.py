@@ -103,7 +103,25 @@ class Robot(FrankaInterface):
         print("Franka is connected")
 
     def osc_move(self, target_pos, target_quat, gripper_state):
-        num_steps = 1 #3
+        # num_steps = 1
+        
+        if not hasattr(self, 'prev_gripper_state'):
+            self.prev_gripper_state = None
+        
+        if self.prev_gripper_state == None:
+            self.prev_gripper_state = gripper_state
+            num_steps = 1
+        elif self.prev_gripper_state < 0 and gripper_state > 0:
+            # Opening -> Closing
+            num_steps = 40
+        elif self.prev_gripper_state > 0 and gripper_state < 0:
+            # Closing -> Opening
+            num_steps = 40
+        else:
+            num_steps = 1
+        self.prev_gripper_state = gripper_state
+        
+        print(f"num_steps: {num_steps}")
 
         for _ in range(num_steps):
             target_mat = transform_utils.pose2mat(pose=(target_pos, target_quat))

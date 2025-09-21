@@ -173,12 +173,14 @@ class FrankaEnv(gym.Env):
         else:
             gripper = GRIPPER_CLOSE
         
-        # if gripper < -0.8 and self.prev_gripper == GRIPPER_CLOSE:
+        # if gripper < 0 and self.prev_gripper == GRIPPER_CLOSE:
         #     gripper = -1.0
-        # elif gripper > 0.5 and self.prev_gripper == GRIPPER_OPEN:
+        # elif gripper > -0.7 and self.prev_gripper == GRIPPER_OPEN:
         #     gripper = 1.0
         # else:
         #     gripper = self.prev_gripper
+        
+        # num_steps = 3 if self.prev_gripper == GRIPPER_OPEN and gripper == GRIPPER_CLOSE else 1
         self.prev_gripper = gripper
 
         # Send action to the robot
@@ -194,6 +196,7 @@ class FrankaEnv(gym.Env):
         # self.action_request_socket.send(bytes(pickle.dumps(franka_action, protocol=-1)))
         # franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
         if self.use_robot:
+            # for _ in range(num_steps):
             self.action_request_socket.send(bytes(pickle.dumps(franka_action, protocol=-1)))
             franka_state: FrankaState = pickle.loads(self.action_request_socket.recv())
         else:

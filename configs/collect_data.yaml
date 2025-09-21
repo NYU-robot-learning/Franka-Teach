@@ -3,7 +3,7 @@ defaults:
   - camera
 
 # storage_path: "/home/siddhant/data_pb/extracted_data/0914_calibration"
-storage_path: "/home_shared/grail_siddhant/data_pb/extracted_data/0915_robot_close_oven"
+storage_path: "/home_shared/grail_siddhant/data_pb/extracted_data/0920_robot_put_bowl_in_oven"
 demo_num: 0
 collect_img: True
 collect_depth: False
