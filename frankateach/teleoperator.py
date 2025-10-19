@@ -6,12 +6,23 @@ from frankateach.network import (
     create_request_socket,
     ZMQKeypointPublisher,
 )
+# from frankateach.constants import (
+#     PORTS,
+#     HOST,
+#     VR_CONTROLLER_STATE_PORT,
+#     H_R_V,
+#     H_R_V_star,
+#     ROBOT_WORKSPACE_MIN,
+#     ROBOT_WORKSPACE_MAX,
+#     GRIPPER_OPEN,
+#     GRIPPER_CLOSE,
+# )
 from frankateach.constants import (
     PORTS,
     HOST,
     VR_CONTROLLER_STATE_PORT,
-    H_R_V,
-    H_R_V_star,
+    H_R_V_MAP,
+    H_R_V_STAR_MAP,
     ROBOT_WORKSPACE_MIN,
     ROBOT_WORKSPACE_MAX,
     GRIPPER_OPEN,
@@ -25,7 +36,7 @@ import numpy as np
 from numpy.linalg import pinv
 
 
-def get_relative_affine(init_affine, current_affine):
+def get_relative_affine(init_affine, current_affine, H_R_V, H_R_V_star):
     H_V_des = pinv(init_affine) @ current_affine
 
     # Transform to robot frame.
@@ -47,6 +58,7 @@ class FrankaOperator:
         init_gripper_state="open",
         teleop_mode="robot",
         home_offset=[0, 0, 0],
+        hand="right", # "right" or "left"
     ) -> None:
         # Subscribe controller state
         self._controller_state_subscriber = ZMQKeypointSubscriber(
@@ -66,6 +78,10 @@ class FrankaOperator:
         self.start_teleop = False
         self.init_affine = None
         self.teleop_mode = teleop_mode
+        self.hand = hand
+        # Per-arm transforms
+        self.H_R_V = H_R_V_MAP.get(robot, H_R_V_MAP["deoxys_right"])
+        self.H_R_V_star = H_R_V_STAR_MAP.get(robot, H_R_V_STAR_MAP["deoxys_right"])
 
         if teleop_mode == "human" and home_offset is None:
             home_offset = [-0.22, 0.0, 0.1]
@@ -109,10 +125,19 @@ class FrankaOperator:
             )
 
             self.is_first_frame = False
-        if self.controller_state.right_a:
+        # if self.controller_state.right_a:
+        # START/STOP teleop with the matching controller
+        start_btn = self.controller_state.right_a if self.hand == "right" else self.controller_state.left_x
+        stop_btn  = self.controller_state.right_b if self.hand == "right" else self.controller_state.left_y
+
+        if start_btn:
             self.start_teleop = True
-            self.init_affine = self.controller_state.right_affine
-        if self.controller_state.right_b:
+        #     self.init_affine = self.controller_state.right_affine
+        # if self.controller_state.right_b:
+            self.init_affine = (self.controller_state.right_affine
+                                if self.hand == "right" else
+                                self.controller_state.left_affine)
+        if stop_btn:
             self.start_teleop = False
             self.init_affine = None
             # receive the robot state
@@ -127,19 +152,35 @@ class FrankaOperator:
                 robot_state.pos,
             )
 
+        # if self.start_teleop and self.teleop_mode == "robot":
+        #     relative_affine = get_relative_affine(
+        #         self.init_affine, self.controller_state.right_affine
+        #     )
         if self.start_teleop and self.teleop_mode == "robot":
+            current_affine = (self.controller_state.right_affine
+                              if self.hand == "right" else
+                              self.controller_state.left_affine)
             relative_affine = get_relative_affine(
-                self.init_affine, self.controller_state.right_affine
+                self.init_affine, current_affine, self.H_R_V, self.H_R_V_star
             )
         else:
             relative_affine = np.zeros((4, 4))
             relative_affine[3, 3] = 1
 
         gripper_action = None
+        # if self.teleop_mode == "robot":
+        #     if self.controller_state.right_index_trigger > 0.5:
         if self.teleop_mode == "robot":
-            if self.controller_state.right_index_trigger > 0.5:
+            index_trigger = (self.controller_state.right_index_trigger
+                             if self.hand == "right" else
+                             self.controller_state.left_index_trigger)
+            hand_trigger  = (self.controller_state.right_hand_trigger
+                             if self.hand == "right" else
+                             self.controller_state.left_hand_trigger)
+            if index_trigger > 0.5:
                 gripper_action = GRIPPER_CLOSE
-            elif self.controller_state.right_hand_trigger > 0.5:
+            # elif self.controller_state.right_hand_trigger > 0.5:
+            elif hand_trigger > 0.5:
                 gripper_action = GRIPPER_OPEN
 
         if gripper_action is not None and gripper_action != self.gripper_state:

@@ -5,6 +5,7 @@ from frankateach.data_collector import DataCollector
 @hydra.main(config_path="configs", config_name="collect_data", version_base="1.2")
 def main(cfg):
     data_collector = DataCollector(
+        robots=getattr(cfg, "robots", None),
         storage_path=cfg.storage_path,
         demo_num=cfg.demo_num,
         cams=cfg.cam_info,

@@ -10,3 +10,6 @@ collect_img: True
 collect_depth: False
 collect_state: True
 collect_reskin: False
+robots:
+  - deoxys_left
+  - deoxys_right

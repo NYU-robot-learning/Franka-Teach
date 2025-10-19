@@ -5,14 +5,18 @@ from frankateach.oculus_stick import OculusVRStickDetector
 from frankateach.constants import HOST, VR_CONTROLLER_STATE_PORT
 
 
+# def start_teleop(
+#     robot, init_gripper_state="open", teleop_mode="robot", home_offset=None
+# ):
 def start_teleop(
-    robot, init_gripper_state="open", teleop_mode="robot", home_offset=None
+    robot, init_gripper_state="open", teleop_mode="robot", home_offset=None, hand="right"
 ):
     operator = FrankaOperator(
         robot=robot,
         init_gripper_state=init_gripper_state,
         teleop_mode=teleop_mode,
         home_offset=home_offset,
+        hand=hand,
     )
     operator.stream()
 
@@ -24,22 +28,49 @@ def start_oculus_stick():
 
 @hydra.main(version_base="1.2", config_path="configs", config_name="teleop")
 def main(cfg):
-    teleop_process = Process(
-        target=start_teleop,
-        args=(
-            cfg.robot,
-            cfg.init_gripper_state,
-            cfg.teleop_mode,
-            cfg.home_offset,
-        ),
-    )
-    oculus_stick_process = Process(target=start_oculus_stick)
+    # teleop_process = Process(
+    #     target=start_teleop,
+    #     args=(
+    #         cfg.robot,
+    #         cfg.init_gripper_state,
+    #         cfg.teleop_mode,
+    #         cfg.home_offset,
+    #     ),
+    # )
+    # oculus_stick_process = Process(target=start_oculus_stick)
 
-    teleop_process.start()
-    oculus_stick_process.start()
+    # teleop_process.start()
+    # oculus_stick_process.start()
 
-    teleop_process.join()
-    oculus_stick_process.join()
+    # teleop_process.join()
+    # oculus_stick_process.join()
+    procs = []
+    # If robot is "deoxys_bimanual", run left+right operators and a single VR publisher.
+    if str(cfg.robot) == "deoxys_bimanual":
+        # Start VR publisher once
+        procs.append(Process(target=start_oculus_stick))
+        # Left arm (left hand)
+        procs.append(Process(
+            target=start_teleop,
+            args=("deoxys_left", cfg.init_gripper_state, cfg.teleop_mode, cfg.home_offset, "left"),
+        ))
+        # Right arm (right hand)
+        procs.append(Process(
+            target=start_teleop,
+            args=("deoxys_right", cfg.init_gripper_state, cfg.teleop_mode, cfg.home_offset, "right"),
+        ))
+    else:
+        # Single arm mode. Optional: cfg.hand selects which controller.
+        if getattr(cfg, "start_vr_publisher", True):
+            procs.append(Process(target=start_oculus_stick))
+        procs.append(Process(
+            target=start_teleop,
+            args=(cfg.robot, cfg.init_gripper_state, cfg.teleop_mode, cfg.home_offset, getattr(cfg, "hand", "right")),
+        ))
+    for p in procs:
+        p.start()
+    for p in procs:
+        p.join()
 
 
 if __name__ == "__main__":

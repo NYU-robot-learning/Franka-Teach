@@ -5,3 +5,6 @@ defaults:
 init_gripper_state: open # open, close
 teleop_mode: robot # robot, human
 home_offset: null
+hand: right           # used in single-arm mode
+start_vr_publisher: true
+# For bimanual teleop, pass: robot=deoxys_bimanual on the CLI

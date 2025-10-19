@@ -20,16 +20,19 @@ from frankateach.constants import HOST, CAM_PORT, DEPTH_PORT_OFFSET, PORTS
 class DataCollector:
     def __init__(
         self,
-        robot: str,
-        storage_path: str,
-        demo_num: int,
-        cams=[],  # camera info dicts
+        robot: str = None,
+        robots: list = None,
+        storage_path: str = "./data",
+        demo_num: int = 0,
+        cams=None,  # camera info dicts
         cam_config=None,  # camera configs by type
         collect_img=False,
         collect_state=False,
         collect_depth=False,
         collect_reskin=False,
     ):
+        if cams is None:
+            cams = []
         self.image_subscribers = {}
         self.depth_subscribers = {}
         if collect_img:
@@ -45,17 +48,29 @@ class DataCollector:
                         HOST, CAM_PORT + DEPTH_PORT_OFFSET + camera.cam_id, "Depth"
                     )
 
-        if collect_state:
-            self.state_socket = ZMQKeypointSubscriber(
-                host=HOST, port=PORTS[robot]["state"], topic="robot_state"
-            )
+        # if collect_state:
+        #     self.state_socket = ZMQKeypointSubscriber(
+        #         host=HOST, port=PORTS[robot]["state"], topic="robot_state"
+        #     )
 
-            self.commanded_state_socket = ZMQKeypointSubscriber(
-                host=HOST, port=PORTS[robot]["commanded_state"], topic="commanded_robot_state"
-            )
+        #     self.commanded_state_socket = ZMQKeypointSubscriber(
+        #         host=HOST, port=PORTS[robot]["commanded_state"], topic="commanded_robot_state"
+        #     )
 
-        if collect_reskin:
-            self.reskin_subscriber = ReskinSensorSubscriber(port=PORTS[robot]["reskin"])
+        self.robots = robots if robots is not None else ([robot] if robot else [])
+        if collect_state and self.robots:
+            self.state_sockets = {}
+            self.commanded_state_sockets = {}
+            for r in self.robots:
+                self.state_sockets[r] = ZMQKeypointSubscriber(
+                    host=HOST, port=PORTS[r]["state"], topic="robot_state"
+                )
+                self.commanded_state_sockets[r] = ZMQKeypointSubscriber(
+                    host=HOST, port=PORTS[r]["commanded_state"], topic="commanded_robot_state"
+                )
+
+            if collect_reskin:
+                self.reskin_subscriber = ReskinSensorSubscriber(port=PORTS[robot]["reskin"])
 
         # Create the storage directory
         self.storage_path = Path(storage_path) / f"demonstration_{demo_num}"
@@ -85,8 +100,11 @@ class DataCollector:
                     )
                 )
 
-        if collect_state:
-            self.threads.append(threading.Thread(target=self.save_states, daemon=True))
+        # if collect_state:
+        #     self.threads.append(threading.Thread(target=self.save_states, daemon=True))
+        if collect_state and self.robots:
+            for r in self.robots:
+                self.threads.append(threading.Thread(target=self.save_states_for_robot, args=(r,), daemon=True))
 
         if collect_reskin:
             self.threads.append(threading.Thread(target=self.save_reskin, daemon=True))
@@ -118,10 +136,14 @@ class DataCollector:
 
         timestamps = []
         metadata = dict(
+            # cam_idx=cam_idx,
+            # width=cam_config.width,
+            # height=cam_config.height,
+            # fps=cam_config.fps,
             cam_idx=cam_idx,
-            width=cam_config.width,
-            height=cam_config.height,
-            fps=cam_config.fps,
+            width=cam_config["width"],
+            height=cam_config["height"],
+            fps=cam_config["fps"],
             filename=filename,
             record_start_time=time.time(),
         )
@@ -156,10 +178,14 @@ class DataCollector:
 
         timestamps = []
         metadata = dict(
+            # cam_idx=cam_idx,
+            # width=cam_config.width,
+            # height=cam_config.height,
+            # fps=cam_config.fps,
             cam_idx=cam_idx,
-            width=cam_config.width,
-            height=cam_config.height,
-            fps=cam_config.fps,
+            width=cam_config["width"],
+            height=cam_config["height"],
+            fps=cam_config["fps"],
             filename=filename,
             record_start_time=time.time(),
         )
@@ -184,18 +210,23 @@ class DataCollector:
             self.depth_subscribers[cam_idx].stop()
             print(f"Saved depth to {filename}")
 
-    def save_states(self):
+    # def save_states(self):
+    def save_states_for_robot(self, robot):
         notify_component_start(component_name="State Collector")
 
-        filename = self.storage_path / "states.pkl"
-        cmd_filename = self.storage_path / "commanded_states.pkl"
+        # filename = self.storage_path / "states.pkl"
+        # cmd_filename = self.storage_path / "commanded_states.pkl"
+        filename = self.storage_path / f"states_{robot}.pkl"
+        cmd_filename = self.storage_path / f"commanded_states_{robot}.pkl"
         states = []
         commanded_states = []
 
         while self.run_event.is_set():
-            # state = pickle.loads(self.state_socket.recv())
-            state = self.state_socket.recv_keypoints()
-            commanded_state = self.commanded_state_socket.recv_keypoints()
+            # # state = pickle.loads(self.state_socket.recv())
+            # state = self.state_socket.recv_keypoints()
+            # commanded_state = self.commanded_state_socket.recv_keypoints()
+            state = self.state_sockets[robot].recv_keypoints()
+            commanded_state = self.commanded_state_sockets[robot].recv_keypoints()
             states.append(state)
             commanded_states.append(commanded_state)
 
@@ -206,19 +237,23 @@ class DataCollector:
             pickle.dump(commanded_states, f)
 
         print("Saved states to ", filename)
-        # self.state_socket.close()
-        self.state_socket.stop()
-        self.commanded_state_socket.stop()
+        # # self.state_socket.close()
+        # self.state_socket.stop()
+        # self.commanded_state_socket.stop()
+        self.state_sockets[robot].stop()
+        self.commanded_state_sockets[robot].stop()
 
         print(
             "Frequency of state savings: ",
-            (len(states) - 10) / (states[-1].timestamp - states[10].timestamp),
+            # (len(states) - 10) / (states[-1].timestamp - states[10].timestamp),
+            (len(states) - 10) / (states[-1].timestamp - states[10].timestamp) if len(states) > 10 else float("nan"),
         )
 
         print(
             "Frequency of commanded state savings: ",
-            (len(commanded_states) - 10)
-            / (commanded_states[-1].timestamp - commanded_states[10].timestamp),
+            # (len(commanded_states) - 10)
+            # / (commanded_states[-1].timestamp - commanded_states[10].timestamp),
+            (len(commanded_states) - 10) / (commanded_states[-1].timestamp - commanded_states[10].timestamp) if len(commanded_states) > 10 else float("nan"),
         )
 
     def save_reskin(self):
