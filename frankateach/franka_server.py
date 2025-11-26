@@ -121,7 +121,7 @@ class Robot(FrankaInterface):
             num_steps = 1
         self.prev_gripper_state = gripper_state
         
-        print(f"num_steps: {num_steps}")
+        # print(f"num_steps: {num_steps}")
 
         for _ in range(num_steps):
             target_mat = transform_utils.pose2mat(pose=(target_pos, target_quat))
